@@ -26,31 +26,72 @@ export interface VerificationFilters {
 export const adminVerificationService = {
   // Obtener todos los documentos con filtros
   getAllDocuments: async (filters?: VerificationFilters): Promise<AdminVerificationDocument[]> => {
-    const params = new URLSearchParams();
-    if (filters) {
-      if (filters.status && filters.status !== 'ALL') {
-        params.append('status', filters.status);
+    try {
+      const params = new URLSearchParams();
+      if (filters) {
+        if (filters.status && filters.status !== 'ALL') {
+          params.append('status', filters.status);
+        }
+        if (filters.type && filters.type !== 'ALL') {
+          params.append('type', filters.type);
+        }
+        if (filters.search) {
+          params.append('search', filters.search);
+        }
       }
-      if (filters.type && filters.type !== 'ALL') {
-        params.append('type', filters.type);
-      }
-      if (filters.search) {
-        params.append('search', filters.search);
-      }
+      
+      const endpoint = `/api/verification/admin/documents${params.toString() ? `?${params}` : ''}`;
+      console.log('🔍 Fetching documents from:', endpoint);
+      
+      const response = await api.get<AdminVerificationDocument[]>(endpoint);
+      return response.data!;
+    } catch (error) {
+      console.error('❌ Error fetching documents:', error);
+      throw error;
     }
-    
-    const endpoint = `/api/verification/admin/documents${params.toString() ? `?${params}` : ''}`;
-    const response = await api.get<AdminVerificationDocument[]>(endpoint);
-    return response.data!;
   },
 
   // Aprobar documento
   approveDocument: async (documentId: number): Promise<void> => {
-    await api.post(`/api/verification/admin/document/${documentId}/approve`);
+    try {
+      console.log('✅ Approving document:', documentId);
+      await api.post(`/api/verification/admin/document/${documentId}/approve`);
+    } catch (error) {
+      console.error('❌ Error approving document:', error);
+      throw error;
+    }
   },
 
   // Rechazar documento con razón
   rejectDocument: async (documentId: number, reason: string): Promise<void> => {
-    await api.post(`/api/verification/admin/document/${documentId}/reject`, { reason });
+    try {
+      console.log('❌ Rejecting document:', documentId, 'reason:', reason);
+      await api.post(`/api/verification/admin/document/${documentId}/reject`, { reason });
+    } catch (error) {
+      console.error('❌ Error rejecting document:', error);
+      throw error;
+    }
+  },
+
+  // Obtener documento específico
+  getDocument: async (documentId: number): Promise<AdminVerificationDocument> => {
+    try {
+      const response = await api.get<AdminVerificationDocument>(`/api/verification/admin/document/${documentId}`);
+      return response.data!;
+    } catch (error) {
+      console.error('❌ Error fetching document:', error);
+      throw error;
+    }
+  },
+
+  // Obtener documentos de un usuario específico
+  getUserDocuments: async (userId: number): Promise<AdminVerificationDocument[]> => {
+    try {
+      const response = await api.get<AdminVerificationDocument[]>(`/api/verification/admin/user/${userId}/documents`);
+      return response.data!;
+    } catch (error) {
+      console.error('❌ Error fetching user documents:', error);
+      throw error;
+    }
   },
 };

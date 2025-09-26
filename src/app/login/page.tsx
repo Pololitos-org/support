@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { authService } from '@/lib/services/auth';
+import { ApiError } from '@/lib/services/api';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -22,42 +24,47 @@ export default function LoginPage() {
     setError('');
 
     try {
-      // Llamar directamente a tu backend
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Error al iniciar sesión');
-      }
-
-      // Guardar token
-      localStorage.setItem('accessToken', data.accessToken);
+      console.log('🚀 Starting admin login process...');
       
-      // Verificar si es admin/staff usando tu backend
-      const staffResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/support/admin/check-staff`, {
-        headers: {
-          'Authorization': `Bearer ${data.accessToken}`,
-        },
+      // Usar el servicio de auth que maneja todo el flujo
+      const { loginData, staffData } = await authService.loginAsAdmin({
+        email,
+        password
       });
 
-      if (!staffResponse.ok) {
-        throw new Error('No tienes permisos de administrador');
-      }
-
-      console.log('✅ Login exitoso, redirigiendo al dashboard...');
+      console.log('✅ Admin login successful:', {
+        user: loginData.user,
+        role: staffData.role,
+        isStaff: staffData.isStaff
+      });
       
       // Redirigir al dashboard
       router.push('/dashboard');
+      
     } catch (err) {
-      console.error('❌ Error en login:', err);
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+      console.error('❌ Login error:', err);
+      
+      if (err instanceof ApiError) {
+        // Errores específicos de la API
+        switch (err.status) {
+          case 401:
+            setError('Credenciales incorrectas');
+            break;
+          case 403:
+            setError('No tienes permisos de administrador');
+            break;
+          case 404:
+            setError('Servicio no disponible. Verifica que el backend esté ejecutándose.');
+            break;
+          case 0:
+            setError('Error de conexión. Verifica que el backend esté ejecutándose en http://127.0.0.1:3000');
+            break;
+          default:
+            setError(err.message || 'Error al iniciar sesión');
+        }
+      } else {
+        setError('Error desconocido al iniciar sesión');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -67,10 +74,10 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto w-20 h-20 bg-gradient-to-br from-pololitos-blue to-pololitos-purple rounded-full flex items-center justify-center mb-4">
+          <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center mb-4">
             <span className="text-white font-bold text-2xl">P</span>
           </div>
-          <CardTitle className="text-2xl font-bold">Admin Panel</CardTitle>
+          <CardTitle className="text-2xl font-bold">Administración Pololitos</CardTitle>
           <CardDescription>
             Ingresa con tu cuenta de administrador de Pololitos
           </CardDescription>
@@ -113,7 +120,7 @@ export default function LoginPage() {
             
             <Button 
               type="submit" 
-              className="w-full pololitos-button-primary"
+              className="w-full bg-blue-600 hover:bg-blue-700"
               disabled={isLoading}
             >
               {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
@@ -122,6 +129,11 @@ export default function LoginPage() {
           
           <div className="mt-6 text-center text-sm text-muted-foreground">
             <p>Solo para administradores autorizados</p>
+            {process.env.NODE_ENV === 'development' && (
+              <p className="text-xs text-orange-600 mt-2">
+                Dev: Backend debe estar en http://127.0.0.1:3000
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

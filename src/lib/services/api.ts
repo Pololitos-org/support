@@ -1,5 +1,5 @@
 // lib/services/api.ts - Adaptado de tu proyecto móvil
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.pololitos.cl';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000';
 
 export interface ApiResponse<T = any> {
   data?: T;
@@ -31,7 +31,16 @@ export const apiRequest = async <T = any>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> => {
-  const url = `${API_BASE_URL}${endpoint}`;
+  // Asegurar que el endpoint tenga el prefijo correcto para development
+  const isDev = process.env.NODE_ENV === 'development';
+  const prefixedEndpoint = isDev && !endpoint.startsWith('/dev') ? `/dev${endpoint}` : endpoint;
+  const url = `${API_BASE_URL}${prefixedEndpoint}`;
+  
+  console.log('🔍 API Request:', {
+    method: options.method || 'GET',
+    url,
+    endpoint: prefixedEndpoint
+  });
   
   // Headers por defecto
   const defaultHeaders: Record<string, string> = {
@@ -56,6 +65,12 @@ export const apiRequest = async <T = any>(
       headers,
     });
 
+    console.log('📡 API Response:', {
+      status: response.status,
+      statusText: response.statusText,
+      url: response.url
+    });
+
     // Manejar respuestas no-JSON (como redirects)
     const contentType = response.headers.get('content-type');
     let data: T | undefined;
@@ -65,24 +80,36 @@ export const apiRequest = async <T = any>(
     }
 
     if (!response.ok) {
-      const errorMessage = (data as any)?.error || `HTTP ${response.status}`;
+      const errorMessage = (data as any)?.error || `HTTP ${response.status}: ${response.statusText}`;
+      console.error('❌ API Error:', errorMessage);
       throw new ApiError(errorMessage, response.status);
     }
 
+    console.log('✅ API Success:', data);
     return {
       data,
       status: response.status,
     };
   } catch (error) {
     if (error instanceof ApiError) {
+      // Manejar token expirado específicamente
+      if (error.status === 401) {
+        console.log('🔑 Token expired, redirecting to login...');
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('accessToken');
+          window.location.href = '/login';
+        }
+      }
       throw error;
     }
     
     // Error de red o parsing
-    throw new ApiError(
+    const networkError = new ApiError(
       `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       0
     );
+    console.error('🌐 Network Error:', networkError);
+    throw networkError;
   }
 };
 
@@ -94,19 +121,19 @@ export const api = {
   post: <T>(endpoint: string, body?: any) => 
     apiRequest<T>(endpoint, {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: body ? JSON.stringify(body) : undefined,
     }),
     
   put: <T>(endpoint: string, body?: any) => 
     apiRequest<T>(endpoint, {
       method: 'PUT', 
-      body: JSON.stringify(body),
+      body: body ? JSON.stringify(body) : undefined,
     }),
     
   patch: <T>(endpoint: string, body?: any) => 
     apiRequest<T>(endpoint, {
       method: 'PATCH',
-      body: JSON.stringify(body),
+      body: body ? JSON.stringify(body) : undefined,
     }),
     
   delete: <T>(endpoint: string) => 

@@ -28,13 +28,13 @@ interface SidebarItemProps {
 const SidebarItem = ({ icon: Icon, label, href, isActive, onClick }: SidebarItemProps) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
+    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all duration-200 ${
       isActive 
-        ? 'bg-pololitos-blue text-white' 
-        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+        ? 'bg-blue-600 text-white shadow-md' 
+        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
     }`}
   >
-    <Icon className="h-5 w-5" />
+    <Icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-current'}`} />
     <span className="font-medium">{label}</span>
   </button>
 );
@@ -73,7 +73,18 @@ export default function DashboardLayout({
     });
   }, [router]);
 
+  // Log para debugging
+  useEffect(() => {
+    console.log('Current pathname:', pathname);
+    console.log('Navigation items:', navigationItems.map(item => ({
+      label: item.label,
+      href: item.href,
+      isActive: pathname === item.href
+    })));
+  }, [pathname]);
+
   const handleNavigation = (href: string) => {
+    console.log('Navigating to:', href);
     router.push(href);
     setSidebarOpen(false);
   };
@@ -86,13 +97,13 @@ export default function DashboardLayout({
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pololitos-blue"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex bg-background">
+    <div className="h-screen flex bg-gray-50">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div 
@@ -103,17 +114,30 @@ export default function DashboardLayout({
 
       {/* Sidebar */}
       <div className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-card border-r transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:inset-0
+        fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:inset-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-pololitos-blue to-pololitos-purple rounded-lg flex items-center justify-center">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200">
+            <div className="flex items-center gap-3">
+              {/* Logo principal - reemplaza con tu logo */}
+              <img 
+                src="/logo.svg" 
+                alt="Pololitos" 
+                className="h-8 w-auto"
+                onError={(e) => {
+                  // Fallback si no existe el logo
+                  (e.target as HTMLImageElement).style.display = 'none';
+                  const fallback = (e.target as HTMLImageElement).nextElementSibling as HTMLElement;
+                  if (fallback) fallback.style.display = 'flex';
+                }}
+              />
+              {/* Fallback si no hay logo */}
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center" style={{display: 'none'}}>
                 <span className="text-white font-bold text-sm">P</span>
               </div>
-              <span className="font-bold text-lg">Admin Panel</span>
+              <span className="font-bold text-lg text-gray-900">Admin</span>
             </div>
             <Button
               variant="ghost"
@@ -126,39 +150,42 @@ export default function DashboardLayout({
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-2">
-            {navigationItems.map((item) => (
-              <SidebarItem
-                key={item.href}
-                icon={item.icon}
-                label={item.label}
-                href={item.href}
-                isActive={pathname === item.href}
-                onClick={() => handleNavigation(item.href)}
-              />
-            ))}
+          <nav className="flex-1 p-4 space-y-1">
+            {navigationItems.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <SidebarItem
+                  key={item.href}
+                  icon={item.icon}
+                  label={item.label}
+                  href={item.href}
+                  isActive={isActive}
+                  onClick={() => handleNavigation(item.href)}
+                />
+              );
+            })}
           </nav>
 
-          <Separator />
+          <Separator className="mx-4" />
 
           {/* User section */}
           <div className="p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-pololitos-purple text-white">
+            <div className="flex items-center gap-3 mb-4">
+              <Avatar className="h-10 w-10">
+                <AvatarFallback className="bg-blue-600 text-white text-sm">
                   {user.name.charAt(0)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{user.name}</p>
-                <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                <p className="font-medium text-sm text-gray-900 truncate">{user.name}</p>
+                <p className="text-xs text-gray-500 truncate">{user.email}</p>
               </div>
             </div>
             
             <Button
               variant="outline"
               size="sm"
-              className="w-full justify-start gap-2"
+              className="w-full justify-start gap-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50"
               onClick={handleLogout}
             >
               <LogOut className="h-4 w-4" />
@@ -171,7 +198,7 @@ export default function DashboardLayout({
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top header */}
-        <header className="flex items-center gap-4 px-6 py-4 border-b bg-card">
+        <header className="flex items-center gap-4 px-6 py-4 border-b border-gray-200 bg-white">
           <Button
             variant="ghost"
             size="sm"
@@ -181,13 +208,13 @@ export default function DashboardLayout({
             <Menu className="h-5 w-5" />
           </Button>
           
-          <h1 className="font-semibold text-lg">
+          <h1 className="font-semibold text-lg text-gray-900">
             {navigationItems.find(item => item.href === pathname)?.label || 'Pololitos Admin'}
           </h1>
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-auto bg-gray-50">
           {children}
         </main>
       </div>
