@@ -64,7 +64,7 @@ export const adminUsersService = {
       const endpoint = `/api/admin/users${params.toString() ? `?${params}` : ''}`;
       console.log('🔍 Fetching users from:', endpoint);
       
-      const response = await api.get(endpoint);
+      const response = await api.get<{success: boolean; data: UsersResponse}>(endpoint);
       
       if (response.data?.success) {
         return response.data.data;
@@ -81,7 +81,7 @@ export const adminUsersService = {
   getUserDetails: async (userId: number): Promise<AdminUser> => {
     try {
       console.log('👤 Fetching user details for ID:', userId);
-      const response = await api.get(`/api/admin/users/${userId}`);
+      const response = await api.get<{success: boolean; data: AdminUser}>(`/api/admin/users/${userId}`);
       
       if (response.data?.success) {
         return response.data.data;
@@ -98,7 +98,7 @@ export const adminUsersService = {
   updateUserStatus: async (userId: number, updates: UserStatusUpdate): Promise<void> => {
     try {
       console.log('🔄 Updating user status:', { userId, ...updates });
-      const response = await api.patch(`/api/admin/users/${userId}/status`, updates);
+      const response = await api.patch<{success: boolean; message?: string}>(`/api/admin/users/${userId}/status`, updates);
       
       if (!response.data?.success) {
         throw new Error(response.data?.message || 'Failed to update user status');
@@ -112,7 +112,7 @@ export const adminUsersService = {
   // Obtener estadísticas del dashboard
   getDashboardStats: async (): Promise<any> => {
     try {
-      const response = await api.get('/api/admin/dashboard/stats');
+      const response = await api.get<{success: boolean; data: any}>('/api/admin/dashboard/stats');
       
       if (response.data?.success) {
         return response.data.data;
