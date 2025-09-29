@@ -31,15 +31,20 @@ export const apiRequest = async <T = any>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> => {
+  // 🔥 CAMBIO: Usar variable de entorno específica para API
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+  const isDev = process.env.NEXT_PUBLIC_API_ENV === 'development';
+  
   // Asegurar que el endpoint tenga el prefijo correcto para development
-  const isDev = process.env.NODE_ENV === 'development';
   const prefixedEndpoint = isDev && !endpoint.startsWith('/dev') ? `/dev${endpoint}` : endpoint;
   const url = `${API_BASE_URL}${prefixedEndpoint}`;
   
   console.log('🔍 API Request:', {
     method: options.method || 'GET',
     url,
-    endpoint: prefixedEndpoint
+    endpoint: prefixedEndpoint,
+    isDev,
+    apiEnv: process.env.NEXT_PUBLIC_API_ENV
   });
   
   // Headers por defecto

@@ -37,7 +37,8 @@ import {
   ChevronLeft,
   ChevronRight,
   MoreHorizontal,
-  AlertTriangle
+  AlertTriangle,
+  FileQuestion
 } from 'lucide-react';
 import { adminUsersService, AdminUser, UserFilters, UserStatusUpdate } from '@/lib/services/adminUsers';
 
@@ -89,7 +90,7 @@ export default function UsersPage() {
     'UNVERIFIED': 'Sin verificar'
   };
 
-  // Colores para badges (con tipos más estrictos)
+  // Colores para badges
   const getStatusColor = (status: string): string => {
     switch (status) {
       case 'OK': return 'bg-green-100 text-green-800 border-green-200';
@@ -135,7 +136,7 @@ export default function UsersPage() {
 
   // Aplicar filtros
   const applyFilters = () => {
-    setFilters({ ...filters, page: 1 }); // Reset to page 1 when applying filters
+    setFilters({ ...filters, page: 1 });
   };
 
   // Ver detalles del usuario
@@ -169,7 +170,7 @@ export default function UsersPage() {
       console.log('✅ User status updated successfully');
       setShowStatusModal(false);
       setSelectedUser(null);
-      await loadUsers(); // Recargar lista
+      await loadUsers();
     } catch (error) {
       console.error('❌ Error updating user status:', error);
       alert('Error al actualizar estado del usuario');
@@ -207,9 +208,9 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6 p-4 md:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Usuarios</h1>
           <p className="text-gray-600 mt-1">
@@ -222,7 +223,7 @@ export default function UsersPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
@@ -281,56 +282,148 @@ export default function UsersPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Búsqueda */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Buscar usuarios..."
-                className="pl-10"
-                value={filters.search || ''}
-                onChange={(e) => setFilters({...filters, search: e.target.value})}
-                onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
-              />
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Búsqueda - ocupa más espacio */}
+            <div className="flex-1 min-w-0">
+              <label className="text-sm font-medium text-gray-700 mb-2 block">
+                Buscar
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar por nombre, email o teléfono..."
+                  className="pl-10 h-11"
+                  value={filters.search || ''}
+                  onChange={(e) => setFilters({...filters, search: e.target.value})}
+                  onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
+                />
+              </div>
             </div>
 
             {/* Estado */}
-            <Select
-              value={filters.status || 'ALL'}
-              onValueChange={(value) => setFilters({...filters, status: value as any})}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Todos</SelectItem>
-                <SelectItem value="OK">Activos</SelectItem>
-                <SelectItem value="BLOCKED">Bloqueados</SelectItem>
-                <SelectItem value="DISABLED">Deshabilitados</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="w-full lg:w-48">
+              <label className="text-sm font-medium text-gray-700 mb-2 block">
+                Estado
+              </label>
+              <Select
+                value={filters.status || 'ALL'}
+                onValueChange={(value) => setFilters({...filters, status: value as any})}
+              >
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todos</SelectItem>
+                  <SelectItem value="OK">Activos</SelectItem>
+                  <SelectItem value="BLOCKED">Bloqueados</SelectItem>
+                  <SelectItem value="DISABLED">Deshabilitados</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Verificación */}
-            <Select
-              value={filters.verified === undefined ? 'ALL' : filters.verified.toString()}
-              onValueChange={(value) => {
-                const verified = value === 'ALL' ? undefined : value === 'true';
-                setFilters({...filters, verified});
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Verificación" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Todos</SelectItem>
-                <SelectItem value="true">Verificados</SelectItem>
-                <SelectItem value="false">No verificados</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="w-full lg:w-48">
+              <label className="text-sm font-medium text-gray-700 mb-2 block">
+                Verificación
+              </label>
+              <Select
+                value={filters.verified === undefined ? 'ALL' : filters.verified.toString()}
+                onValueChange={(value) => {
+                  const verified = value === 'ALL' ? undefined : value === 'true';
+                  setFilters({...filters, verified});
+                }}
+              >
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Verificación" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todos</SelectItem>
+                  <SelectItem value="true">Verificados</SelectItem>
+                  <SelectItem value="false">No verificados</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-            {/* Botón aplicar */}
-            <Button onClick={applyFilters}>Aplicar</Button>
+            {/* Botón Aplicar */}
+            <div className="w-full lg:w-48">
+              <label className="text-sm font-medium text-transparent mb-2 block">
+                Acción
+              </label>
+              <Button 
+                onClick={applyFilters} 
+                className="w-full h-11 bg-blue-600 hover:bg-blue-700"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Aplicando...
+                  </>
+                ) : (
+                  <>
+                    <Search className="h-4 w-4 mr-2" />
+                    Aplicar Filtros
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
+
+          {/* Indicador de filtros activos */}
+          {(filters.search || filters.status !== 'ALL' || filters.verified !== undefined) && (
+            <div className="flex items-center gap-2 mt-4 pt-4 border-t">
+              <span className="text-sm text-gray-600">Filtros activos:</span>
+              {filters.search && (
+                <Badge variant="secondary" className="gap-1">
+                  Búsqueda: {filters.search}
+                  <button
+                    onClick={() => setFilters({...filters, search: ''})}
+                    className="ml-1 hover:bg-gray-300 rounded-full"
+                  >
+                    <XCircle className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {filters.status !== 'ALL' && (
+                <Badge variant="secondary" className="gap-1">
+                  Estado: {StatusDisplay[filters.status as keyof typeof StatusDisplay]}
+                  <button
+                    onClick={() => setFilters({...filters, status: 'ALL'})}
+                    className="ml-1 hover:bg-gray-300 rounded-full"
+                  >
+                    <XCircle className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {filters.verified !== undefined && (
+                <Badge variant="secondary" className="gap-1">
+                  {filters.verified ? 'Verificados' : 'No verificados'}
+                  <button
+                    onClick={() => setFilters({...filters, verified: undefined})}
+                    className="ml-1 hover:bg-gray-300 rounded-full"
+                  >
+                    <XCircle className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setFilters({
+                    page: 1,
+                    limit: 20,
+                    search: '',
+                    status: 'ALL',
+                    verified: undefined
+                  });
+                }}
+                className="text-sm text-gray-600 hover:text-gray-900"
+              >
+                Limpiar todos
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -341,18 +434,46 @@ export default function UsersPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-center text-gray-500">Cargando usuarios...</p>
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+              <p className="text-gray-500">Cargando usuarios...</p>
+            </div>
           ) : users.length === 0 ? (
-            <p className="text-center text-gray-500">No se encontraron usuarios</p>
+            <div className="flex flex-col items-center justify-center py-12">
+              <FileQuestion className="h-16 w-16 text-gray-300 mb-4" />
+              <p className="text-lg font-medium text-gray-900 mb-2">
+                No se encontraron usuarios
+              </p>
+              <p className="text-sm text-gray-500 mb-4">
+                Intenta ajustar los filtros de búsqueda
+              </p>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setFilters({
+                    page: 1,
+                    limit: 20,
+                    search: '',
+                    status: 'ALL',
+                    verified: undefined
+                  });
+                }}
+              >
+                Limpiar filtros
+              </Button>
+            </div>
           ) : (
             <div className="space-y-4">
               {users.map((user) => (
-                <div key={user.id} className="border rounded-lg p-4 flex items-center justify-between hover:bg-gray-50">
+                <div key={user.id} className="border rounded-lg p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
                   {/* Info */}
-                  <div>
-                    <p className="font-semibold">{user.name} ({user.email})</p>
-                    <div className="flex gap-2 mt-1">
-                      <Badge className={getStatusColor(user.state)}>{StatusDisplay[user.state]}</Badge>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold truncate">{user.name}</p>
+                    <p className="text-sm text-gray-600 truncate">{user.email}</p>
+                    <div className="flex gap-2 mt-2 flex-wrap">
+                      <Badge className={getStatusColor(user.state)}>
+                        {StatusDisplay[user.state]}
+                      </Badge>
                       {getVerificationLevel(user) !== 'UNVERIFIED' && (
                         <Badge className={getVerificationColor(getVerificationLevel(user))}>
                           {VerificationDisplay[getVerificationLevel(user)]}
@@ -362,7 +483,7 @@ export default function UsersPage() {
                   </div>
 
                   {/* Acciones */}
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 ml-4 flex-shrink-0">
                     <Button size="sm" variant="outline" onClick={() => viewUserDetails(user)}>
                       <Eye className="h-4 w-4 mr-1" /> Ver
                     </Button>
@@ -385,25 +506,29 @@ export default function UsersPage() {
       </Card>
 
       {/* Paginación */}
-      <div className="flex justify-between items-center">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={!pagination.hasPrevPage}
-          onClick={() => handlePageChange(pagination.currentPage - 1)}
-        >
-          <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
-        </Button>
-        <span>Página {pagination.currentPage} de {pagination.totalPages}</span>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={!pagination.hasNextPage}
-          onClick={() => handlePageChange(pagination.currentPage + 1)}
-        >
-          Siguiente <ChevronRight className="h-4 w-4 ml-1" />
-        </Button>
-      </div>
+      {pagination.totalPages > 1 && (
+        <div className="flex justify-between items-center">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!pagination.hasPrevPage}
+            onClick={() => handlePageChange(pagination.currentPage - 1)}
+          >
+            <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
+          </Button>
+          <span className="text-sm text-gray-600">
+            Página {pagination.currentPage} de {pagination.totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!pagination.hasNextPage}
+            onClick={() => handlePageChange(pagination.currentPage + 1)}
+          >
+            Siguiente <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
+        </div>
+      )}
 
       {/* Modal de detalles */}
       <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
@@ -412,11 +537,25 @@ export default function UsersPage() {
             <DialogTitle>Detalles de usuario</DialogTitle>
           </DialogHeader>
           {selectedUser && (
-            <div>
-              <p><strong>Nombre:</strong> {selectedUser.name}</p>
-              <p><strong>Email:</strong> {selectedUser.email}</p>
-              <p><strong>Estado:</strong> {StatusDisplay[selectedUser.state]}</p>
-              <p><strong>Registrado:</strong> {formatDate(selectedUser.createdAt)}</p>
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm text-gray-600">Nombre</p>
+                <p className="font-medium">{selectedUser.name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Email</p>
+                <p className="font-medium">{selectedUser.email}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Estado</p>
+                <Badge className={getStatusColor(selectedUser.state)}>
+                  {StatusDisplay[selectedUser.state]}
+                </Badge>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Registrado</p>
+                <p className="font-medium">{formatDate(selectedUser.createdAt)}</p>
+              </div>
             </div>
           )}
         </DialogContent>
@@ -428,17 +567,30 @@ export default function UsersPage() {
           <DialogHeader>
             <DialogTitle>Cambiar estado de usuario</DialogTitle>
             <DialogDescription>
-              ¿Estás seguro de cambiar el estado de <strong>{selectedUser?.name}</strong>?
+              ¿Estás seguro de cambiar el estado de <strong>{selectedUser?.name}</strong> a{' '}
+              <strong>{statusUpdate.status === 'OK' ? 'Activo' : statusUpdate.status === 'BLOCKED' ? 'Bloqueado' : 'Deshabilitado'}</strong>?
             </DialogDescription>
           </DialogHeader>
-          <Textarea
-            placeholder="Motivo del cambio (opcional)"
-            value={statusUpdate.reason}
-            onChange={(e) => setStatusUpdate({ ...statusUpdate, reason: e.target.value })}
-          />
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                Motivo (opcional)
+              </label>
+              <Textarea
+                placeholder="Explica el motivo del cambio de estado..."
+                value={statusUpdate.reason}
+                onChange={(e) => setStatusUpdate({ ...statusUpdate, reason: e.target.value })}
+                rows={4}
+              />
+            </div>
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowStatusModal(false)}>Cancelar</Button>
-            <Button onClick={confirmStatusChange}>Confirmar</Button>
+            <Button variant="outline" onClick={() => setShowStatusModal(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmStatusChange}>
+              Confirmar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

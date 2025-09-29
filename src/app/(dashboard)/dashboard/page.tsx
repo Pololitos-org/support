@@ -11,7 +11,6 @@ import {
   Shield, 
   MessageSquare,
   TrendingUp,
-  Eye,
   RefreshCw,
   BarChart3
 } from 'lucide-react';
@@ -87,7 +86,7 @@ const ActivityItem = ({ item }: { item: ActivityItem }) => {
   };
 
   return (
-    <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50">
+    <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
       <div className="mt-0.5">
         {getActivityIcon(item.type)}
       </div>
@@ -178,7 +177,7 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64 p-6">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6 text-center">
             <p className="text-destructive mb-4">{error}</p>
@@ -192,16 +191,23 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-          <p className="text-muted-foreground">
+          <h2 className="text-3xl font-bold tracking-tight">
             Resumen general de Pololitos
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Vista general de la actividad de la plataforma
           </p>
         </div>
-        <Button variant="outline" onClick={handleRefresh} disabled={isLoading}>
+        <Button 
+          variant="outline" 
+          onClick={handleRefresh} 
+          disabled={isLoading}
+          className="w-full sm:w-auto"
+        >
           <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
           Actualizar
         </Button>
