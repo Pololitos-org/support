@@ -7,40 +7,43 @@ import {
   logError 
 } from '@/lib/types/errors';
 
-// ✅ Configuración correcta basada en tu proyecto móvil
+// ✅ Configuración correcta
 const API_CONFIG = {
-  // Base URL del API Gateway
   baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000',
-  
-  // Determinar si estamos en desarrollo
   isDevelopment: process.env.NEXT_PUBLIC_NODE_ENV === 'development',
-  
-  // API Gateway Key (se usa SIEMPRE, en dev y prod)
   apiGatewayKey: process.env.NEXT_PUBLIC_API_GATEWAY_KEY || '',
 };
 
-export interface ApiResponse<T = any> {
-  data?: T;
-  error?: string;
-  status: number;
-}
+// ✅ Debug de configuración al cargar
+console.log('🔧 API Configuration loaded:', {
+  baseUrl: API_CONFIG.baseUrl,
+  isDevelopment: API_CONFIG.isDevelopment,
+  hasApiKey: !!API_CONFIG.apiGatewayKey,
+  apiKeyPreview: API_CONFIG.apiGatewayKey ? `${API_CONFIG.apiGatewayKey.substring(0, 10)}...` : 'MISSING'
+});
 
 /**
  * Helper para construir URL completa con prefijo correcto
  */
 function buildApiUrl(endpoint: string): string {
-  // Normalizar endpoint (asegurar que empiece con /)
   const normalizedEndpoint = endpoint.startsWith('/') 
     ? endpoint 
     : `/${endpoint}`;
   
-  // En desarrollo: agregar prefijo /dev
-  // En producción: sin prefijo
   const fullPath = API_CONFIG.isDevelopment 
     ? `/dev${normalizedEndpoint}` 
     : normalizedEndpoint;
   
-  return `${API_CONFIG.baseUrl}${fullPath}`;
+  const url = `${API_CONFIG.baseUrl}${fullPath}`;
+  
+  console.log('🔗 Built URL:', {
+    original: endpoint,
+    normalized: normalizedEndpoint,
+    fullPath,
+    final: url
+  });
+  
+  return url;
 }
 
 /**
@@ -48,7 +51,15 @@ function buildApiUrl(endpoint: string): string {
  */
 function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('accessToken');
+  const token = localStorage.getItem('accessToken');
+  console.log('🔑 Auth token:', token ? `${token.substring(0, 20)}...` : 'NO TOKEN');
+  return token;
+}
+
+export interface ApiResponse<T = any> {
+  data?: T;
+  error?: string;
+  status: number;
 }
 
 /**
@@ -61,7 +72,7 @@ export async function apiRequest<T>(
   
   const url = buildApiUrl(endpoint);
 
-  console.log('🔍 API Request:', {
+  console.log('🚀 API Request Starting:', {
     method: options.method || 'GET',
     url,
     endpoint,
@@ -76,14 +87,19 @@ export async function apiRequest<T>(
   // ✅ SIEMPRE incluir API Gateway Key (en dev y prod)
   if (API_CONFIG.apiGatewayKey) {
     defaultHeaders['x-api-key'] = API_CONFIG.apiGatewayKey;
+    console.log('✅ Added x-api-key header');
   } else {
-    console.warn('⚠️ API Gateway Key not configured');
+    console.error('❌ API Gateway Key NOT configured!');
+    console.warn('⚠️ Request will likely fail without API Gateway Key');
   }
 
   // ✅ Agregar JWT token si existe (para autenticación de usuario)
   const userToken = getAuthToken();
   if (userToken) {
     defaultHeaders['Authorization'] = `Bearer ${userToken}`;
+    console.log('✅ Added Authorization header');
+  } else {
+    console.log('ℹ️ No user token (this is OK for login endpoint)');
   }
 
   // Merge headers
@@ -92,31 +108,54 @@ export async function apiRequest<T>(
     ...(options.headers as Record<string, string>),
   };
 
+  console.log('📋 Final headers:', Object.keys(headers));
+
   try {
+    console.log('🌐 Sending fetch request...');
+    
     const response = await fetch(url, {
       ...options,
       headers,
     });
 
-    console.log('📡 API Response:', {
+    console.log('📡 API Response received:', {
       status: response.status,
       statusText: response.statusText,
+      ok: response.ok,
+      headers: Object.fromEntries(response.headers.entries())
     });
 
     const contentType = response.headers.get('content-type');
     let data: T | undefined;
 
     if (contentType?.includes('application/json')) {
-      data = await response.json();
+      const textData = await response.text();
+      console.log('📄 Response body (raw):', textData.substring(0, 200));
+      
+      try {
+        data = JSON.parse(textData);
+        console.log('✅ Parsed JSON successfully');
+      } catch (e) {
+        console.error('❌ Failed to parse JSON:', e);
+        console.log('Raw response:', textData);
+      }
+    } else {
+      console.log('ℹ️ Response is not JSON, content-type:', contentType);
     }
 
     if (!response.ok) {
+      console.error('❌ Response not OK:', {
+        status: response.status,
+        statusText: response.statusText,
+        data
+      });
+      
       const apiError = ApiError.fromResponse(response, data);
       logError(apiError, `API Request to ${endpoint}`);
 
       // Manejar token expirado
       if (response.status === 401) {
-        console.log('🔑 Token expired, redirecting to login...');
+        console.log('🔑 Token expired (401), redirecting to login...');
         if (typeof window !== 'undefined') {
           localStorage.removeItem('accessToken');
           window.location.href = '/login';
@@ -126,16 +165,24 @@ export async function apiRequest<T>(
       throw apiError;
     }
 
-    console.log('✅ API Success');
+    console.log('✅ API Request Successful');
     return { data, status: response.status };
     
   } catch (error) {
+    console.error('💥 API Request threw error:', error);
+    
     if (error instanceof ApiError) {
+      console.log('Error is ApiError:', error.toJSON());
       throw error;
     }
 
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      console.error('🌐 Network/CORS error detected:', error.message);
+    }
+
     const networkError = new NetworkError(
-      error instanceof Error ? error.message : 'Unknown network error'
+      error instanceof Error ? error.message : 'Unknown network error',
+      { originalError: error }
     );
     logError(networkError, `Network error on ${endpoint}`);
     throw networkError;
