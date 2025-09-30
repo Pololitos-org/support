@@ -55,7 +55,7 @@ export default function DashboardLayout({
     { icon: Shield, label: 'Verificaciones', href: '/verification' },
     { icon: MessageSquare, label: 'Soporte', href: '/support' },
     { icon: BarChart3, label: 'Analytics', href: '/analytics' },
-    { icon: Settings, label: 'Configuración', href: '/settings' },
+    // { icon: Settings, label: 'Configuración', href: '/settings' },
   ];
 
   useEffect(() => {

@@ -1,0 +1,14 @@
+{
+  "Comment": "Create CNAME record for admin subdomain",
+  "Changes": [{
+    "Action": "CREATE",
+    "ResourceRecordSet": {
+      "Name": "admin.pololitos.cl",
+      "Type": "CNAME",
+      "TTL": 300,
+      "ResourceRecords": [{
+        "Value": "cname.vercel-dns.com"
+      }]
+    }
+  }]
+}
