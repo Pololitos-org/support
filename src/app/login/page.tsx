@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { authService } from '@/lib/services/auth';
+import Image from 'next/image';
 import { 
   ApiError, 
   AuthError, 
@@ -80,10 +81,17 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center mb-4">
-            <span className="text-white font-bold text-2xl">P</span>
+          {/* Logo con texto incluido */}
+          <div className="mx-auto mb-6 flex justify-center">
+            <Image
+              src="/logotexto.svg"
+              alt="Pololitos Logo"
+              width={200}
+              height={80}
+              priority
+              className="object-contain"
+            />
           </div>
-          <CardTitle className="text-2xl font-bold">Administración Pololitos</CardTitle>
           <CardDescription>Ingresa con tu cuenta de administrador</CardDescription>
         </CardHeader>
 
