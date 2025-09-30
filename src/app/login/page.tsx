@@ -1,3 +1,4 @@
+// app/login/page.tsx
 'use client';
 
 import { useState } from 'react';
@@ -9,7 +10,13 @@ import { Label } from '@/components/ui/label';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { authService } from '@/lib/services/auth';
-import { ApiError } from '@/lib/services/api';
+import { 
+  ApiError, 
+  AuthError, 
+  NetworkError,
+  getErrorMessage,
+  AuthErrorCode 
+} from '@/lib/types/errors';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -24,46 +31,45 @@ export default function LoginPage() {
     setError('');
 
     try {
-      console.log('🚀 Starting admin login process...');
-      
-      // Usar el servicio de auth que maneja todo el flujo
+      console.log('🚀 Starting admin login...');
+
       const { loginData, staffData } = await authService.loginAsAdmin({
         email,
-        password
+        password,
       });
 
       console.log('✅ Admin login successful:', {
         user: loginData.user,
         role: staffData.role,
-        isStaff: staffData.isStaff
       });
-      
-      // Redirigir al dashboard
+
       router.push('/dashboard');
-      
     } catch (err) {
       console.error('❌ Login error:', err);
-      
-      if (err instanceof ApiError) {
-        // Errores específicos de la API
+
+      // Manejar diferentes tipos de errores
+      if (err instanceof NetworkError) {
+        setError('Error de conexión. Verifica que el backend esté ejecutándose en http://127.0.0.1:3000');
+      } else if (err instanceof AuthError) {
+        // Usar el mensaje específico del error
+        setError(getErrorMessage(err));
+      } else if (err instanceof ApiError) {
+        // Manejar errores de API por status
         switch (err.status) {
-          case 401:
-            setError('Credenciales incorrectas');
-            break;
-          case 403:
-            setError('No tienes permisos de administrador');
-            break;
           case 404:
-            setError('Servicio no disponible. Verifica que el backend esté ejecutándose.');
+            setError('Servicio no disponible. Verifica que el backend esté ejecutándose');
             break;
-          case 0:
-            setError('Error de conexión. Verifica que el backend esté ejecutándose en http://127.0.0.1:3000');
+          case 500:
+          case 502:
+          case 503:
+            setError('Error del servidor. Intenta nuevamente en unos momentos');
             break;
           default:
-            setError(err.message || 'Error al iniciar sesión');
+            setError(getErrorMessage(err));
         }
       } else {
-        setError('Error desconocido al iniciar sesión');
+        // Error desconocido
+        setError('Ha ocurrido un error inesperado. Intenta nuevamente');
       }
     } finally {
       setIsLoading(false);
@@ -78,11 +84,9 @@ export default function LoginPage() {
             <span className="text-white font-bold text-2xl">P</span>
           </div>
           <CardTitle className="text-2xl font-bold">Administración Pololitos</CardTitle>
-          <CardDescription>
-            Ingresa con tu cuenta de administrador de Pololitos
-          </CardDescription>
+          <CardDescription>Ingresa con tu cuenta de administrador</CardDescription>
         </CardHeader>
-        
+
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             {error && (
@@ -91,7 +95,7 @@ export default function LoginPage() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -102,9 +106,10 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={isLoading}
+                autoComplete="email"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="password">Contraseña</Label>
               <Input
@@ -115,18 +120,19 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={isLoading}
+                autoComplete="current-password"
               />
             </div>
-            
-            <Button 
-              type="submit" 
+
+            <Button
+              type="submit"
               className="w-full bg-blue-600 hover:bg-blue-700"
               disabled={isLoading}
             >
               {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
             </Button>
           </form>
-          
+
           <div className="mt-6 text-center text-sm text-muted-foreground">
             <p>Solo para administradores autorizados</p>
             {process.env.NODE_ENV === 'development' && (

@@ -1,5 +1,12 @@
-// lib/services/auth.ts - Servicio de autenticación
-import { api, ApiError } from './api';
+// lib/services/auth.ts
+import { api } from './api';
+import { 
+  ApiError, 
+  AuthError, 
+  AuthErrorCode, 
+  getErrorMessage,
+  logError 
+} from '@/lib/types/errors';
 
 export interface LoginRequest {
   email: string;
@@ -23,89 +30,90 @@ export interface StaffCheckResponse {
 }
 
 export const authService = {
-  // Login de administrador
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
     try {
-      console.log('🔐 Attempting admin login for:', credentials.email);
-      
+      console.log('🔐 Attempting login for:', credentials.email);
+
       const response = await api.post<LoginResponse>('/api/auth/login', credentials);
-      
+
       if (!response.data?.accessToken) {
-        throw new Error('Invalid response format: missing access token');
+        throw new AuthError(
+          'Respuesta inválida del servidor',
+          AuthErrorCode.INVALID_TOKEN,
+          500
+        );
       }
 
-      // Guardar token en localStorage
       localStorage.setItem('accessToken', response.data.accessToken);
-      console.log('✅ Login successful, token saved');
-      
+      console.log('✅ Login successful');
+
       return response.data;
     } catch (error) {
-      console.error('❌ Login failed:', error);
-      // Limpiar cualquier token existente en caso de error
       localStorage.removeItem('accessToken');
+      logError(error, 'Auth login');
       throw error;
     }
   },
 
-  // Verificar si el usuario actual es staff/admin
   checkStaffStatus: async (): Promise<StaffCheckResponse> => {
     try {
       console.log('🛡️ Checking staff status...');
-      
+
       const response = await api.get<StaffCheckResponse>('/api/support/admin/check-staff');
-      
+
       if (!response.data) {
-        throw new Error('Invalid response format');
+        throw new AuthError(
+          'Respuesta inválida del servidor',
+          AuthErrorCode.INVALID_TOKEN,
+          500
+        );
       }
 
       console.log('✅ Staff status verified:', response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ Staff check failed:', error);
+      logError(error, 'Staff check');
       throw error;
     }
   },
 
-  // Logout
   logout: (): void => {
     console.log('👋 Logging out...');
     localStorage.removeItem('accessToken');
   },
 
-  // Verificar si hay un token válido
   isAuthenticated: (): boolean => {
-    const token = localStorage.getItem('accessToken');
-    return !!token;
+    return !!localStorage.getItem('accessToken');
   },
 
-  // Obtener token actual
   getToken: (): string | null => {
     return localStorage.getItem('accessToken');
   },
 
-  // Login completo con verificación de staff
-  loginAsAdmin: async (credentials: LoginRequest): Promise<{ 
-    loginData: LoginResponse; 
+  loginAsAdmin: async (credentials: LoginRequest): Promise<{
+    loginData: LoginResponse;
     staffData: StaffCheckResponse;
   }> => {
     try {
-      // 1. Hacer login normal
+      // 1. Login normal
       const loginData = await authService.login(credentials);
-      
+
       // 2. Verificar permisos de staff
       const staffData = await authService.checkStaffStatus();
-      
+
       if (!staffData.isStaff) {
-        // Si no es staff, hacer logout y lanzar error
         authService.logout();
-        throw new ApiError('No tienes permisos de administrador', 403);
+        throw new AuthError(
+          'No tienes permisos de administrador',
+          AuthErrorCode.NOT_STAFF,
+          403
+        );
       }
 
       return { loginData, staffData };
     } catch (error) {
-      // Asegurar cleanup en caso de error
       authService.logout();
       throw error;
     }
-  }
+  },
 };
