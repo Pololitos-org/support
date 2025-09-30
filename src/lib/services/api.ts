@@ -19,6 +19,12 @@ const API_CONFIG = {
   apiGatewayKey: process.env.NEXT_PUBLIC_API_GATEWAY_KEY || '',
 };
 
+export interface ApiResponse<T = any> {
+  data?: T;
+  error?: string;
+  status: number;
+}
+
 /**
  * Helper para construir URL completa con prefijo correcto
  */
