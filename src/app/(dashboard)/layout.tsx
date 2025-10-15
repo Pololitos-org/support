@@ -11,7 +11,8 @@ import {
   Settings,
   LogOut,
   Menu,
-  X
+  X,
+  DollarSign
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -55,6 +56,7 @@ export default function DashboardLayout({
     { icon: Shield, label: 'Verificaciones', href: '/verification' },
     { icon: MessageSquare, label: 'Soporte', href: '/support' },
     { icon: BarChart3, label: 'Analytics', href: '/analytics' },
+    { icon: DollarSign, label: 'Transacciones', href: '/transactions' },
     // { icon: Settings, label: 'Configuración', href: '/settings' },
   ];
 

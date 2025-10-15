@@ -43,7 +43,7 @@ const StatCard = ({
       <CardContent>
         <div className="text-2xl font-bold">{value}</div>
         <div className="flex items-center text-xs text-muted-foreground mt-1">
-          {trend !== undefined && trend !== 0 && (
+          {trend !== undefined && trend !== 0 && !isNaN(trend) && (
             <div className={`flex items-center mr-2 ${trendColor}`}>
               <TrendIcon className="h-3 w-3 mr-1" />
               {trend > 0 ? '+' : ''}{trend}%
@@ -57,38 +57,46 @@ const StatCard = ({
 };
 
 export default function StatsCards({ stats }: StatsCardsProps) {
+  // ✅ Helper para formatear números de forma segura
+  const safeFormatNumber = (value: number | null | undefined): string => {
+    if (value === null || value === undefined || isNaN(value)) {
+      return '0';
+    }
+    return value.toLocaleString('es-CL');
+  };
+
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
       <StatCard
         title="Usuarios Totales"
-        value={stats.totalUsers.toLocaleString('es-CL')}
+        value={safeFormatNumber(stats.totalUsers)}
         description="usuarios registrados"
         icon={Users}
-        trend={stats.trends.users}
+        trend={stats.trends?.users}
       />
       <StatCard
         title="Tareas Activas"
-        value={stats.totalTasks.toLocaleString('es-CL')}
+        value={safeFormatNumber(stats.totalTasks)}
         description="tareas en plataforma"
         icon={ShoppingBag}
-        trend={stats.trends.tasks}
+        trend={stats.trends?.tasks}
       />
       <StatCard
         title="Revenue Total"
-        value={dashboardService.formatCurrency(stats.totalRevenue)}
+        value={dashboardService.formatCurrency(stats.totalRevenue || 0)}
         description="últimos 30 días"
         icon={DollarSign}
-        trend={stats.trends.revenue}
+        trend={stats.trends?.revenue}
       />
       <StatCard
         title="Verificaciones"
-        value={stats.pendingVerifications.toLocaleString('es-CL')}
+        value={safeFormatNumber(stats.pendingVerifications)}
         description="pendientes"
         icon={Shield}
       />
       <StatCard
         title="Tickets Abiertos"
-        value={stats.openTickets.toLocaleString('es-CL')}
+        value={safeFormatNumber(stats.openTickets)}
         description="requieren atención"
         icon={MessageSquare}
       />
