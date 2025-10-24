@@ -47,6 +47,10 @@ export default function AnalyticsPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState(30);
 
+  const formatNumber = (value: number | null | undefined): string => {
+    return (value ?? 0).toLocaleString('es-CL');
+  };
+
   const loadAnalytics = async () => {
     try {
       setIsLoading(true);
@@ -116,8 +120,6 @@ export default function AnalyticsPage() {
 
   if (!analytics) return null;
 
-
-
   const { summary, charts } = analytics;
   const pieData = charts.tasksByCategory.map((item, index) => ({
     name: item.category,
@@ -167,7 +169,7 @@ export default function AnalyticsPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{summary.totalUsers.toLocaleString('es-CL')}</div>
+            <div className="text-2xl font-bold">{formatNumber(summary.totalUsers)}</div>
             <div className="flex items-center text-xs text-muted-foreground mt-1">
               <TrendingUp className="h-3 w-3 mr-1 text-green-600" />
               +{summary.newUsers} nuevos ({selectedPeriod} días)
@@ -181,7 +183,7 @@ export default function AnalyticsPage() {
             <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{summary.verifiedUsers.toLocaleString('es-CL')}</div>
+            <div className="text-2xl font-bold">{formatNumber(summary.verifiedUsers)}</div>
             <div className="text-xs text-muted-foreground mt-1">
               {((summary.verifiedUsers / summary.totalUsers) * 100).toFixed(1)}% del total
             </div>
@@ -194,7 +196,7 @@ export default function AnalyticsPage() {
             <ShoppingBag className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{summary.totalTasks.toLocaleString('es-CL')}</div>
+            <div className="text-2xl font-bold">{formatNumber(summary.totalTasks)}</div>
             <div className="flex items-center text-xs text-muted-foreground mt-1">
               <TrendingUp className="h-3 w-3 mr-1 text-green-600" />
               +{summary.newTasks} nuevas ({selectedPeriod} días)
@@ -261,7 +263,7 @@ export default function AnalyticsPage() {
                 <YAxis />
                 <Tooltip 
                   labelFormatter={(value) => analyticsService.formatMonth(value)}
-                  formatter={(value: number) => [value.toLocaleString('es-CL'), 'Usuarios']}
+                  formatter={(value: number) => [formatNumber(value), 'Usuarios']}
                 />
                 <Area
                   type="monotone"
@@ -317,7 +319,7 @@ export default function AnalyticsPage() {
                 <YAxis />
                 <Tooltip 
                   labelFormatter={(value) => analyticsService.formatMonth(value)}
-                  formatter={(value: number) => [value.toLocaleString('es-CL'), 'Tareas']}
+                  formatter={(value: number) => [formatNumber(value), 'Tareas']}
                 />
                 <Line
                   type="monotone"
@@ -357,7 +359,7 @@ export default function AnalyticsPage() {
                   ))}
                 </Pie>
                 <Tooltip 
-                  formatter={(value: number, name: string) => [value.toLocaleString('es-CL'), 'Tareas']} 
+                  formatter={(value: number, name: string) => [formatNumber(value), 'Tareas']} 
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -382,7 +384,7 @@ export default function AnalyticsPage() {
                   <span className="font-medium">{category.category}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-gray-600">{category.count.toLocaleString('es-CL')} tareas</span>
+                  <span className="text-gray-600">{formatNumber(category.count)} tareas</span>
                 </div>
               </div>
             ))}
