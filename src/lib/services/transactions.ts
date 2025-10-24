@@ -60,6 +60,20 @@ export interface TransactionStats {
   }>;
 }
 
+export interface UserBalance {
+  userId: number;
+  availableBalance: number;
+  pendingBalance: number;
+  totalEarnings: number;
+  totalWithdrawn: number;
+  lastTransactionAt?: string;
+}
+
+export interface UserTransactionsResponse {
+  balance: UserBalance;
+  transactions: Transaction[];
+}
+
 export const transactionsService = {
   /**
    * Obtiene estadísticas de transacciones
@@ -89,7 +103,7 @@ export const transactionsService = {
   },
 
   /**
-   * Obtiene transacciones recientes
+   * Obtiene transacciones recientes (todas las transacciones de la plataforma)
    */
   async getRecentTransactions(limit: number = 50, offset: number = 0): Promise<Transaction[]> {
     try {
@@ -123,15 +137,33 @@ export const transactionsService = {
   },
 
   /**
-   * Obtiene transacciones de un usuario específico
+   * Obtiene transacciones de un usuario específico junto con su balance
+   * Nota: A diferencia de otros endpoints, este retorna un objeto con {balance, transactions}
+   * porque el backend incluye información del balance del usuario junto con sus transacciones
    */
-  async getUserTransactions(userId: number, limit: number = 50): Promise<Transaction[]> {
+  async getUserTransactions(userId: number, limit: number = 50): Promise<UserTransactionsResponse> {
     try {
-      const response = await api.get<Transaction[]>(
+      console.log(`👤 Fetching transactions for user ${userId}...`);
+      
+      const response = await api.get<UserTransactionsResponse>(
         `/api/admin/transactions/user/${userId}?limit=${limit}`
       );
       
-      return response.data || [];
+      // Validar estructura de respuesta
+      if (!response.data) {
+        throw new Error('No data received from server');
+      }
+      
+      return response.data || { 
+        balance: {
+          userId,
+          availableBalance: 0,
+          pendingBalance: 0,
+          totalEarnings: 0,
+          totalWithdrawn: 0
+        },
+        transactions: [] 
+      };
     } catch (error) {
       console.error('❌ Error fetching user transactions:', error);
       throw error;
@@ -148,7 +180,13 @@ export const transactionsService = {
     escrowBalance: number;
   }> {
     try {
-      const response = await api.get<any>('/api/admin/transactions/platform-balance');
+      const response = await api.get<{
+        totalAvailable: number;
+        totalPending: number;
+        totalEarnings: number;
+        escrowBalance: number;
+      }>('/api/admin/transactions/platform-balance');
+      
       return response.data || {
         totalAvailable: 0,
         totalPending: 0,
