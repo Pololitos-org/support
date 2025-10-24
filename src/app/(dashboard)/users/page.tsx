@@ -20,6 +20,12 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { 
   Search, 
@@ -38,17 +44,32 @@ import {
   ChevronRight,
   MoreHorizontal,
   AlertTriangle,
-  FileQuestion
+  FileQuestion,
+  Banknote,
+  Copy,
+  Check
 } from 'lucide-react';
-import { adminUsersService, AdminUser, UserFilters, UserStatusUpdate } from '@/lib/services/adminUsers';
+import { 
+  adminUsersService, 
+  AdminUser, 
+  UserFilters, 
+  UserStatusUpdate,
+  PendingPayoutUser 
+} from '@/lib/services/adminUsers';
 
 export default function UsersPage() {
   // Estados principales
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [pendingPayouts, setPendingPayouts] = useState<PendingPayoutUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingPayouts, setIsLoadingPayouts] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  
+  // Tab activo
+  const [activeTab, setActiveTab] = useState<'all' | 'payouts'>('all');
   
   // Paginación
   const [pagination, setPagination] = useState({
@@ -68,6 +89,9 @@ export default function UsersPage() {
     status: 'ALL',
     verified: undefined
   });
+
+  // Filtro para pagos pendientes
+  const [minBalance, setMinBalance] = useState<number>(1000);
 
   // Estados para cambio de status
   const [statusUpdate, setStatusUpdate] = useState<UserStatusUpdate>({
@@ -114,6 +138,17 @@ export default function UsersPage() {
     return user.verificationLevel || 'UNVERIFIED';
   };
 
+  // Función para copiar al portapapeles
+  const copyToClipboard = async (text: string, field: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (err) {
+      console.error('Error copying to clipboard:', err);
+    }
+  };
+
   // Cargar usuarios
   const loadUsers = async () => {
     setIsLoading(true);
@@ -129,6 +164,20 @@ export default function UsersPage() {
     }
   };
 
+  // Cargar pagos pendientes
+  const loadPendingPayouts = async () => {
+    setIsLoadingPayouts(true);
+    try {
+      const response = await adminUsersService.getPendingPayouts(minBalance);
+      console.log('💰 Pending payouts loaded:', response);
+      setPendingPayouts(response.data);
+    } catch (error) {
+      console.error('❌ Error loading pending payouts:', error);
+    } finally {
+      setIsLoadingPayouts(false);
+    }
+  };
+
   // Manejar cambio de página
   const handlePageChange = (newPage: number) => {
     setFilters({ ...filters, page: newPage });
@@ -140,9 +189,9 @@ export default function UsersPage() {
   };
 
   // Ver detalles del usuario
-  const viewUserDetails = async (user: AdminUser) => {
+  const viewUserDetails = async (userId: number) => {
     try {
-      const userDetails = await adminUsersService.getUserDetails(user.id);
+      const userDetails = await adminUsersService.getUserDetails(userId);
       setSelectedUser(userDetails);
       setShowDetailsModal(true);
     } catch (error) {
@@ -171,6 +220,9 @@ export default function UsersPage() {
       setShowStatusModal(false);
       setSelectedUser(null);
       await loadUsers();
+      if (activeTab === 'payouts') {
+        await loadPendingPayouts();
+      }
     } catch (error) {
       console.error('❌ Error updating user status:', error);
       alert('Error al actualizar estado del usuario');
@@ -196,8 +248,16 @@ export default function UsersPage() {
 
   // Effects
   useEffect(() => {
-    loadUsers();
-  }, [filters]);
+    if (activeTab === 'all') {
+      loadUsers();
+    }
+  }, [filters, activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'payouts') {
+      loadPendingPayouts();
+    }
+  }, [activeTab, minBalance]);
 
   // Estadísticas rápidas
   const stats = {
@@ -205,6 +265,13 @@ export default function UsersPage() {
     active: users.filter(u => u.state === 'OK').length,
     blocked: users.filter(u => u.state === 'BLOCKED').length,
     verified: users.filter(u => u.identityVerified).length,
+  };
+
+  const payoutStats = {
+    total: pendingPayouts.length,
+    withBank: pendingPayouts.filter(u => u.hasBankAccount).length,
+    withoutBank: pendingPayouts.filter(u => !u.hasBankAccount).length,
+    totalAmount: pendingPayouts.reduce((sum, u) => sum + u.availableBalance, 0)
   };
 
   return (
@@ -217,347 +284,788 @@ export default function UsersPage() {
             Gestiona los usuarios de la plataforma
           </p>
         </div>
-        <Button onClick={loadUsers} disabled={isLoading}>
-          {isLoading ? 'Cargando...' : 'Actualizar'}
+        <Button 
+          onClick={activeTab === 'all' ? loadUsers : loadPendingPayouts} 
+          disabled={activeTab === 'all' ? isLoading : isLoadingPayouts}
+        >
+          {(activeTab === 'all' ? isLoading : isLoadingPayouts) ? 'Cargando...' : 'Actualizar'}
         </Button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <Users className="h-8 w-8 text-blue-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <CheckCircle className="h-8 w-8 text-green-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Activos</p>
-                <p className="text-2xl font-bold text-green-600">{stats.active}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'all' | 'payouts')}>
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="all">
+            <Users className="h-4 w-4 mr-2" />
+            Todos los Usuarios
+          </TabsTrigger>
+          <TabsTrigger value="payouts">
+            <Banknote className="h-4 w-4 mr-2" />
+            Pagos Pendientes
+          </TabsTrigger>
+        </TabsList>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <XCircle className="h-8 w-8 text-red-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Bloqueados</p>
-                <p className="text-2xl font-bold text-red-600">{stats.blocked}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <Shield className="h-8 w-8 text-purple-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Verificados</p>
-                <p className="text-2xl font-bold text-purple-600">{stats.verified}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filtros */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            Filtros
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col lg:flex-row gap-4">
-            {/* Búsqueda - ocupa más espacio */}
-            <div className="flex-1 min-w-0">
-              <label className="text-sm font-medium text-gray-700 mb-2 block">
-                Buscar
-              </label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Buscar por nombre, email o teléfono..."
-                  className="pl-10 h-11"
-                  value={filters.search || ''}
-                  onChange={(e) => setFilters({...filters, search: e.target.value})}
-                  onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
-                />
-              </div>
-            </div>
-
-            {/* Estado */}
-            <div className="w-full lg:w-48">
-              <label className="text-sm font-medium text-gray-700 mb-2 block">
-                Estado
-              </label>
-              <Select
-                value={filters.status || 'ALL'}
-                onValueChange={(value) => setFilters({...filters, status: value as any})}
-              >
-                <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Estado" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">Todos</SelectItem>
-                  <SelectItem value="OK">Activos</SelectItem>
-                  <SelectItem value="BLOCKED">Bloqueados</SelectItem>
-                  <SelectItem value="DISABLED">Deshabilitados</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Verificación */}
-            <div className="w-full lg:w-48">
-              <label className="text-sm font-medium text-gray-700 mb-2 block">
-                Verificación
-              </label>
-              <Select
-                value={filters.verified === undefined ? 'ALL' : filters.verified.toString()}
-                onValueChange={(value) => {
-                  const verified = value === 'ALL' ? undefined : value === 'true';
-                  setFilters({...filters, verified});
-                }}
-              >
-                <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Verificación" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">Todos</SelectItem>
-                  <SelectItem value="true">Verificados</SelectItem>
-                  <SelectItem value="false">No verificados</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Botón Aplicar */}
-            <div className="w-full lg:w-48">
-              <label className="text-sm font-medium text-transparent mb-2 block">
-                Acción
-              </label>
-              <Button 
-                onClick={applyFilters} 
-                className="w-full h-11 bg-blue-600 hover:bg-blue-700"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Aplicando...
-                  </>
-                ) : (
-                  <>
-                    <Search className="h-4 w-4 mr-2" />
-                    Aplicar Filtros
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-
-          {/* Indicador de filtros activos */}
-          {(filters.search || filters.status !== 'ALL' || filters.verified !== undefined) && (
-            <div className="flex items-center gap-2 mt-4 pt-4 border-t">
-              <span className="text-sm text-gray-600">Filtros activos:</span>
-              {filters.search && (
-                <Badge variant="secondary" className="gap-1">
-                  Búsqueda: {filters.search}
-                  <button
-                    onClick={() => setFilters({...filters, search: ''})}
-                    className="ml-1 hover:bg-gray-300 rounded-full"
-                  >
-                    <XCircle className="h-3 w-3" />
-                  </button>
-                </Badge>
-              )}
-              {filters.status !== 'ALL' && (
-                <Badge variant="secondary" className="gap-1">
-                  Estado: {StatusDisplay[filters.status as keyof typeof StatusDisplay]}
-                  <button
-                    onClick={() => setFilters({...filters, status: 'ALL'})}
-                    className="ml-1 hover:bg-gray-300 rounded-full"
-                  >
-                    <XCircle className="h-3 w-3" />
-                  </button>
-                </Badge>
-              )}
-              {filters.verified !== undefined && (
-                <Badge variant="secondary" className="gap-1">
-                  {filters.verified ? 'Verificados' : 'No verificados'}
-                  <button
-                    onClick={() => setFilters({...filters, verified: undefined})}
-                    className="ml-1 hover:bg-gray-300 rounded-full"
-                  >
-                    <XCircle className="h-3 w-3" />
-                  </button>
-                </Badge>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setFilters({
-                    page: 1,
-                    limit: 20,
-                    search: '',
-                    status: 'ALL',
-                    verified: undefined
-                  });
-                }}
-                className="text-sm text-gray-600 hover:text-gray-900"
-              >
-                Limpiar todos
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Lista de usuarios */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Usuarios ({pagination.totalUsers})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-              <p className="text-gray-500">Cargando usuarios...</p>
-            </div>
-          ) : users.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <FileQuestion className="h-16 w-16 text-gray-300 mb-4" />
-              <p className="text-lg font-medium text-gray-900 mb-2">
-                No se encontraron usuarios
-              </p>
-              <p className="text-sm text-gray-500 mb-4">
-                Intenta ajustar los filtros de búsqueda
-              </p>
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setFilters({
-                    page: 1,
-                    limit: 20,
-                    search: '',
-                    status: 'ALL',
-                    verified: undefined
-                  });
-                }}
-              >
-                Limpiar filtros
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {users.map((user) => (
-                <div key={user.id} className="border rounded-lg p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold truncate">{user.name}</p>
-                    <p className="text-sm text-gray-600 truncate">{user.email}</p>
-                    <div className="flex gap-2 mt-2 flex-wrap">
-                      <Badge className={getStatusColor(user.state)}>
-                        {StatusDisplay[user.state]}
-                      </Badge>
-                      {getVerificationLevel(user) !== 'UNVERIFIED' && (
-                        <Badge className={getVerificationColor(getVerificationLevel(user))}>
-                          {VerificationDisplay[getVerificationLevel(user)]}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Acciones */}
-                  <div className="flex gap-2 ml-4 flex-shrink-0">
-                    <Button size="sm" variant="outline" onClick={() => viewUserDetails(user)}>
-                      <Eye className="h-4 w-4 mr-1" /> Ver
-                    </Button>
-                    {user.state !== 'OK' && (
-                      <Button size="sm" onClick={() => handleStatusChange(user, 'OK')}>
-                        Activar
-                      </Button>
-                    )}
-                    {user.state !== 'BLOCKED' && (
-                      <Button size="sm" variant="destructive" onClick={() => handleStatusChange(user, 'BLOCKED')}>
-                        Bloquear
-                      </Button>
-                    )}
+        {/* TAB: Todos los usuarios */}
+        <TabsContent value="all" className="space-y-6">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center">
+                  <Users className="h-8 w-8 text-blue-600" />
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Total</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
                   </div>
                 </div>
-              ))}
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center">
+                  <CheckCircle className="h-8 w-8 text-green-600" />
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Activos</p>
+                    <p className="text-2xl font-bold text-green-600">{stats.active}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center">
+                  <XCircle className="h-8 w-8 text-red-600" />
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Bloqueados</p>
+                    <p className="text-2xl font-bold text-red-600">{stats.blocked}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center">
+                  <Shield className="h-8 w-8 text-purple-600" />
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Verificados</p>
+                    <p className="text-2xl font-bold text-purple-600">{stats.verified}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Filtros */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                Filtros
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col lg:flex-row gap-4">
+                {/* Búsqueda */}
+                <div className="flex-1 min-w-0">
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    Buscar
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Buscar por nombre, email o teléfono..."
+                      className="pl-10 h-11"
+                      value={filters.search || ''}
+                      onChange={(e) => setFilters({...filters, search: e.target.value})}
+                      onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
+                    />
+                  </div>
+                </div>
+
+                {/* Estado */}
+                <div className="w-full lg:w-48">
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    Estado
+                  </label>
+                  <Select
+                    value={filters.status || 'ALL'}
+                    onValueChange={(value) => setFilters({...filters, status: value as any})}
+                  >
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder="Estado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Todos</SelectItem>
+                      <SelectItem value="OK">Activos</SelectItem>
+                      <SelectItem value="BLOCKED">Bloqueados</SelectItem>
+                      <SelectItem value="DISABLED">Deshabilitados</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Verificación */}
+                <div className="w-full lg:w-48">
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    Verificación
+                  </label>
+                  <Select
+                    value={filters.verified === undefined ? 'ALL' : filters.verified.toString()}
+                    onValueChange={(value) => {
+                      const verified = value === 'ALL' ? undefined : value === 'true';
+                      setFilters({...filters, verified});
+                    }}
+                  >
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder="Verificación" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Todos</SelectItem>
+                      <SelectItem value="true">Verificados</SelectItem>
+                      <SelectItem value="false">No verificados</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Botón Aplicar */}
+                <div className="w-full lg:w-48">
+                  <label className="text-sm font-medium text-transparent mb-2 block">
+                    Acción
+                  </label>
+                  <Button 
+                    onClick={applyFilters} 
+                    className="w-full h-11 bg-blue-600 hover:bg-blue-700"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Aplicando...
+                      </>
+                    ) : (
+                      <>
+                        <Search className="h-4 w-4 mr-2" />
+                        Aplicar Filtros
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Indicador de filtros activos */}
+              {(filters.search || filters.status !== 'ALL' || filters.verified !== undefined) && (
+                <div className="flex items-center gap-2 mt-4 pt-4 border-t">
+                  <span className="text-sm text-gray-600">Filtros activos:</span>
+                  {filters.search && (
+                    <Badge variant="secondary" className="gap-1">
+                      Búsqueda: {filters.search}
+                      <button
+                        onClick={() => setFilters({...filters, search: ''})}
+                        className="ml-1 hover:bg-gray-300 rounded-full"
+                      >
+                        <XCircle className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  )}
+                  {filters.status !== 'ALL' && (
+                    <Badge variant="secondary" className="gap-1">
+                      Estado: {StatusDisplay[filters.status as keyof typeof StatusDisplay]}
+                      <button
+                        onClick={() => setFilters({...filters, status: 'ALL'})}
+                        className="ml-1 hover:bg-gray-300 rounded-full"
+                      >
+                        <XCircle className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  )}
+                  {filters.verified !== undefined && (
+                    <Badge variant="secondary" className="gap-1">
+                      {filters.verified ? 'Verificados' : 'No verificados'}
+                      <button
+                        onClick={() => setFilters({...filters, verified: undefined})}
+                        className="ml-1 hover:bg-gray-300 rounded-full"
+                      >
+                        <XCircle className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setFilters({
+                        page: 1,
+                        limit: 20,
+                        search: '',
+                        status: 'ALL',
+                        verified: undefined
+                      });
+                    }}
+                    className="text-sm text-gray-600 hover:text-gray-900"
+                  >
+                    Limpiar todos
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Lista de usuarios */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Usuarios ({pagination.totalUsers})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+                  <p className="text-gray-500">Cargando usuarios...</p>
+                </div>
+              ) : users.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <FileQuestion className="h-16 w-16 text-gray-300 mb-4" />
+                  <p className="text-lg font-medium text-gray-900 mb-2">
+                    No se encontraron usuarios
+                  </p>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Intenta ajustar los filtros de búsqueda
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setFilters({
+                        page: 1,
+                        limit: 20,
+                        search: '',
+                        status: 'ALL',
+                        verified: undefined
+                      });
+                    }}
+                  >
+                    Limpiar filtros
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {users.map((user) => (
+                    <div key={user.id} className="border rounded-lg p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold truncate">{user.name}</p>
+                        <p className="text-sm text-gray-600 truncate">{user.email}</p>
+                        <div className="flex gap-2 mt-2 flex-wrap">
+                          <Badge className={getStatusColor(user.state)}>
+                            {StatusDisplay[user.state]}
+                          </Badge>
+                          {getVerificationLevel(user) !== 'UNVERIFIED' && (
+                            <Badge className={getVerificationColor(getVerificationLevel(user))}>
+                              {VerificationDisplay[getVerificationLevel(user)]}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Acciones */}
+                      <div className="flex gap-2 ml-4 flex-shrink-0">
+                        <Button size="sm" variant="outline" onClick={() => viewUserDetails(user.id)}>
+                          <Eye className="h-4 w-4 mr-1" /> Ver
+                        </Button>
+                        {user.state !== 'OK' && (
+                          <Button size="sm" onClick={() => handleStatusChange(user, 'OK')}>
+                            Activar
+                          </Button>
+                        )}
+                        {user.state !== 'BLOCKED' && (
+                          <Button size="sm" variant="destructive" onClick={() => handleStatusChange(user, 'BLOCKED')}>
+                            Bloquear
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Paginación */}
+          {pagination.totalPages > 1 && (
+            <div className="flex justify-between items-center">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!pagination.hasPrevPage}
+                onClick={() => handlePageChange(pagination.currentPage - 1)}
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
+              </Button>
+              <span className="text-sm text-gray-600">
+                Página {pagination.currentPage} de {pagination.totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!pagination.hasNextPage}
+                onClick={() => handlePageChange(pagination.currentPage + 1)}
+              >
+                Siguiente <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </TabsContent>
 
-      {/* Paginación */}
-      {pagination.totalPages > 1 && (
-        <div className="flex justify-between items-center">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!pagination.hasPrevPage}
-            onClick={() => handlePageChange(pagination.currentPage - 1)}
-          >
-            <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
-          </Button>
-          <span className="text-sm text-gray-600">
-            Página {pagination.currentPage} de {pagination.totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!pagination.hasNextPage}
-            onClick={() => handlePageChange(pagination.currentPage + 1)}
-          >
-            Siguiente <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
-        </div>
-      )}
+        {/* TAB: Pagos Pendientes */}
+        <TabsContent value="payouts" className="space-y-6">
+          {/* Stats Cards para pagos */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center">
+                  <Users className="h-8 w-8 text-blue-600" />
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Total usuarios</p>
+                    <p className="text-2xl font-bold text-gray-900">{payoutStats.total}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center">
+                  <CheckCircle className="h-8 w-8 text-green-600" />
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Con cuenta bancaria</p>
+                    <p className="text-2xl font-bold text-green-600">{payoutStats.withBank}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-      {/* Modal de detalles */}
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center">
+                  <AlertTriangle className="h-8 w-8 text-yellow-600" />
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Sin cuenta bancaria</p>
+                    <p className="text-2xl font-bold text-yellow-600">{payoutStats.withoutBank}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center">
+                  <DollarSign className="h-8 w-8 text-purple-600" />
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Total disponible</p>
+                    <p className="text-2xl font-bold text-purple-600">
+                      {formatMoney(payoutStats.totalAmount)}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Filtro de balance mínimo */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                Filtros
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-end gap-4">
+                <div className="flex-1">
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    Balance mínimo (CLP)
+                  </label>
+                  <Input
+                    type="number"
+                    placeholder="Ej: 1000"
+                    value={minBalance}
+                    onChange={(e) => setMinBalance(Number(e.target.value))}
+                    className="h-11"
+                  />
+                </div>
+                <Button 
+                  onClick={() => loadPendingPayouts()}
+                  className="h-11"
+                  disabled={isLoadingPayouts}
+                >
+                  {isLoadingPayouts ? 'Cargando...' : 'Aplicar'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Lista de pagos pendientes */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Usuarios con pagos pendientes ({payoutStats.total})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoadingPayouts ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+                  <p className="text-gray-500">Cargando pagos pendientes...</p>
+                </div>
+              ) : pendingPayouts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Banknote className="h-16 w-16 text-gray-300 mb-4" />
+                  <p className="text-lg font-medium text-gray-900 mb-2">
+                    No hay pagos pendientes
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    No se encontraron usuarios con balance mayor a {formatMoney(minBalance)}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {pendingPayouts.map((user) => (
+                    <div 
+                      key={user.id} 
+                      className={`border rounded-lg p-4 ${!user.hasBankAccount ? 'bg-yellow-50 border-yellow-200' : 'hover:bg-gray-50'} transition-colors`}
+                    >
+                      <div className="flex items-start justify-between">
+                        {/* Info del usuario */}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <p className="font-semibold text-lg">{user.name}</p>
+                            {!user.hasBankAccount && (
+                              <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                Sin cuenta bancaria
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          <p className="text-sm text-gray-600 mb-1">{user.email}</p>
+                          {user.phone && (
+                            <p className="text-sm text-gray-600 mb-3">{user.phone}</p>
+                          )}
+
+                          {/* Stats del usuario */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3">
+                            <div>
+                              <p className="text-xs text-gray-500">Balance disponible</p>
+                              <p className="font-bold text-green-600">
+                                {formatMoney(user.availableBalance)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">Pendiente</p>
+                              <p className="font-semibold text-yellow-600">
+                                {formatMoney(user.pendingBalance)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">Total ganado</p>
+                              <p className="font-semibold text-gray-700">
+                                {formatMoney(user.totalEarnings)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">Tier</p>
+                              <Badge variant="outline">{user.tier}</Badge>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Acciones */}
+                        <div className="flex gap-2 ml-4 flex-shrink-0">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => viewUserDetails(user.id)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" /> Ver detalles
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Modal de detalles completo */}
       <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Detalles de usuario</DialogTitle>
+            <DialogTitle className="text-2xl">Detalles de usuario</DialogTitle>
           </DialogHeader>
           {selectedUser && (
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm text-gray-600">Nombre</p>
-                <p className="font-medium">{selectedUser.name}</p>
+            <div className="space-y-6">
+              {/* Información básica */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg border-b pb-2 flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Información Personal
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Nombre</p>
+                    <p className="font-medium">{selectedUser.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Email</p>
+                    <p className="font-medium">{selectedUser.email}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Teléfono</p>
+                    <p className="font-medium">{selectedUser.phone || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Estado</p>
+                    <Badge className={getStatusColor(selectedUser.state)}>
+                      {StatusDisplay[selectedUser.state]}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Registrado</p>
+                    <p className="font-medium">{formatDate(selectedUser.createdAt)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Ubicación</p>
+                    <p className="font-medium">{selectedUser.location || 'N/A'}</p>
+                  </div>
+                </div>
+                {selectedUser.bio && (
+                  <div>
+                    <p className="text-sm text-gray-600">Biografía</p>
+                    <p className="font-medium text-sm mt-1">{selectedUser.bio}</p>
+                  </div>
+                )}
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Email</p>
-                <p className="font-medium">{selectedUser.email}</p>
+
+              {/* Estadísticas */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg border-b pb-2 flex items-center gap-2">
+                  <Star className="h-5 w-5" />
+                  Estadísticas
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Tareas completadas</p>
+                    <p className="font-medium text-xl">{selectedUser.totalTasks}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Calificación</p>
+                    <p className="font-medium text-xl flex items-center gap-1">
+                      <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+                      {selectedUser.averageRating.toFixed(1)} ({selectedUser.totalRatings})
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Ganancias totales</p>
+                    <p className="font-medium text-xl">{formatMoney(selectedUser.earningsTotal)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Últimos 30 días</p>
+                    <p className="font-medium text-xl">
+                      {formatMoney(selectedUser.earningsLast30Days || 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Tier</p>
+                    <Badge variant="outline" className="text-base px-3 py-1">
+                      {selectedUser.tier || 'BRONZE'}
+                    </Badge>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Estado</p>
-                <Badge className={getStatusColor(selectedUser.state)}>
-                  {StatusDisplay[selectedUser.state]}
-                </Badge>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Registrado</p>
-                <p className="font-medium">{formatDate(selectedUser.createdAt)}</p>
+
+              {/* Balance */}
+              {selectedUser.balance && (
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-lg border-b pb-2 flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" />
+                    Balance
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                      <p className="text-sm text-gray-600 mb-1">Disponible para retiro</p>
+                      <p className="font-bold text-2xl text-green-600">
+                        {formatMoney(selectedUser.balance.availableBalance)}
+                      </p>
+                    </div>
+                    <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                      <p className="text-sm text-gray-600 mb-1">Pendiente (en escrow)</p>
+                      <p className="font-bold text-2xl text-yellow-600">
+                        {formatMoney(selectedUser.balance.pendingBalance)}
+                      </p>
+                    </div>
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                      <p className="text-sm text-gray-600 mb-1">Total ganado</p>
+                      <p className="font-bold text-xl text-blue-600">
+                        {formatMoney(selectedUser.balance.totalEarnings)}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <p className="text-sm text-gray-600 mb-1">Total retirado</p>
+                      <p className="font-bold text-xl text-gray-700">
+                        {formatMoney(selectedUser.balance.totalWithdrawn)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Información Bancaria */}
+              {selectedUser.bankAccount ? (
+                <div className="space-y-3 bg-gradient-to-br from-yellow-50 to-orange-50 p-6 rounded-lg border-2 border-yellow-300">
+                  <h3 className="font-semibold text-lg flex items-center gap-2 text-yellow-900">
+                    <Banknote className="h-5 w-5" />
+                    Información Bancaria (Confidencial)
+                  </h3>
+                  
+                  <div className="bg-white rounded-lg p-4 border border-yellow-200">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-600">Titular de la cuenta</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="font-medium">{selectedUser.bankAccount.nombreCompleto}</p>
+                          <button
+                            onClick={() => copyToClipboard(selectedUser.bankAccount!.nombreCompleto, 'nombre')}
+                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                          >
+                            {copiedField === 'nombre' ? (
+                              <Check className="h-4 w-4 text-green-600" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">RUT</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="font-medium">{selectedUser.bankAccount.rut}</p>
+                          <button
+                            onClick={() => copyToClipboard(selectedUser.bankAccount!.rut, 'rut')}
+                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                          >
+                            {copiedField === 'rut' ? (
+                              <Check className="h-4 w-4 text-green-600" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Banco</p>
+                        <p className="font-medium mt-1">{selectedUser.bankAccount.banco}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Tipo de cuenta</p>
+                        <p className="font-medium mt-1 capitalize">{selectedUser.bankAccount.tipoCuenta}</p>
+                      </div>
+                      <div className="col-span-2 bg-yellow-100 p-3 rounded border border-yellow-300">
+                        <p className="text-sm text-gray-600 mb-1">Número de cuenta</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-mono font-bold text-xl text-gray-900">
+                            {selectedUser.bankAccount.numeroCuentaCompleto}
+                          </p>
+                          <button
+                            onClick={() => copyToClipboard(selectedUser.bankAccount!.numeroCuentaCompleto!, 'cuenta')}
+                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                          >
+                            {copiedField === 'cuenta' ? (
+                              <Check className="h-5 w-5 text-green-600" />
+                            ) : (
+                              <Copy className="h-5 w-5" />
+                            )}
+                          </button>
+                        </div>
+                        <p className="text-xs text-yellow-800 mt-2 flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          Información sensible - Usar solo para transferencias
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3 bg-gray-50 p-6 rounded-lg border-2 border-gray-200">
+                  <h3 className="font-semibold text-lg flex items-center gap-2 text-gray-600">
+                    <AlertTriangle className="h-5 w-5" />
+                    Sin Información Bancaria
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Este usuario no ha registrado información bancaria aún.
+                    No se pueden procesar pagos hasta que complete este paso.
+                  </p>
+                </div>
+              )}
+
+              {/* Verificación */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg border-b pb-2 flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  Verificación
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center gap-2">
+                    {selectedUser.identityVerified ? (
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <XCircle className="h-5 w-5 text-gray-400" />
+                    )}
+                    <span className="text-sm">Identidad verificada</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {selectedUser.criminalRecordVerified ? (
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <XCircle className="h-5 w-5 text-gray-400" />
+                    )}
+                    <span className="text-sm">Antecedentes verificados</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {selectedUser.addressVerified ? (
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <XCircle className="h-5 w-5 text-gray-400" />
+                    )}
+                    <span className="text-sm">Dirección verificada</span>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Nivel de verificación</p>
+                    <Badge className={getVerificationColor(getVerificationLevel(selectedUser))}>
+                      {VerificationDisplay[getVerificationLevel(selectedUser)]}
+                    </Badge>
+                  </div>
+                </div>
               </div>
             </div>
           )}
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowDetailsModal(false)}>
+              Cerrar
+            </Button>
+            {selectedUser && selectedUser.state !== 'BLOCKED' && (
+              <Button 
+                variant="destructive" 
+                onClick={() => {
+                  setShowDetailsModal(false);
+                  handleStatusChange(selectedUser, 'BLOCKED');
+                }}
+              >
+                <Ban className="h-4 w-4 mr-2" />
+                Bloquear usuario
+              </Button>
+            )}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -568,13 +1076,15 @@ export default function UsersPage() {
             <DialogTitle>Cambiar estado de usuario</DialogTitle>
             <DialogDescription>
               ¿Estás seguro de cambiar el estado de <strong>{selectedUser?.name}</strong> a{' '}
-              <strong>{statusUpdate.status === 'OK' ? 'Activo' : statusUpdate.status === 'BLOCKED' ? 'Bloqueado' : 'Deshabilitado'}</strong>?
+              <strong>
+                {statusUpdate.status === 'OK' ? 'Activo' : statusUpdate.status === 'BLOCKED' ? 'Bloqueado' : 'Deshabilitado'}
+              </strong>?
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium mb-2 block">
-                Motivo (opcional)
+                Motivo {statusUpdate.status !== 'OK' && '(recomendado)'}
               </label>
               <Textarea
                 placeholder="Explica el motivo del cambio de estado..."
@@ -588,8 +1098,11 @@ export default function UsersPage() {
             <Button variant="outline" onClick={() => setShowStatusModal(false)}>
               Cancelar
             </Button>
-            <Button onClick={confirmStatusChange}>
-              Confirmar
+            <Button 
+              onClick={confirmStatusChange}
+              variant={statusUpdate.status === 'BLOCKED' ? 'destructive' : 'default'}
+            >
+              Confirmar cambio
             </Button>
           </DialogFooter>
         </DialogContent>
