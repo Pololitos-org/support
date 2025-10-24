@@ -550,38 +550,59 @@ export default function UsersPage() {
               ) : (
                 <div className="space-y-4">
                   {users.map((user) => (
-                    <div key={user.id} className="border rounded-lg p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold truncate">{user.name}</p>
-                        <p className="text-sm text-gray-600 truncate">{user.email}</p>
-                        <div className="flex gap-2 mt-2 flex-wrap">
-                          <Badge className={getStatusColor(user.state)}>
-                            {StatusDisplay[user.state]}
-                          </Badge>
-                          {getVerificationLevel(user) !== 'UNVERIFIED' && (
-                            <Badge className={getVerificationColor(getVerificationLevel(user))}>
-                              {VerificationDisplay[getVerificationLevel(user)]}
+                    <div 
+                      key={user.id} 
+                      className="border rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer group"
+                      onClick={() => viewUserDetails(user.id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        {/* Info - ahora es clickeable */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold truncate group-hover:text-blue-600 transition-colors">
+                            {user.name}
+                          </p>
+                          <p className="text-sm text-gray-600 truncate">{user.email}</p>
+                          <div className="flex gap-2 mt-2 flex-wrap">
+                            <Badge className={getStatusColor(user.state)}>
+                              {StatusDisplay[user.state]}
                             </Badge>
+                            {getVerificationLevel(user) !== 'UNVERIFIED' && (
+                              <Badge className={getVerificationColor(getVerificationLevel(user))}>
+                                {VerificationDisplay[getVerificationLevel(user)]}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Acciones - prevenir propagación del click */}
+                        <div 
+                          className="flex gap-2 ml-4 flex-shrink-0"
+                          onClick={(e) => e.stopPropagation()} // ✅ Importante: evita que se abra el modal
+                        >
+                          {user.state !== 'OK' && (
+                            <Button 
+                              size="sm" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStatusChange(user, 'OK');
+                              }}
+                            >
+                              Activar
+                            </Button>
+                          )}
+                          {user.state !== 'BLOCKED' && (
+                            <Button 
+                              size="sm" 
+                              variant="destructive" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStatusChange(user, 'BLOCKED');
+                              }}
+                            >
+                              Bloquear
+                            </Button>
                           )}
                         </div>
-                      </div>
-
-                      {/* Acciones */}
-                      <div className="flex gap-2 ml-4 flex-shrink-0">
-                        <Button size="sm" variant="outline" onClick={() => viewUserDetails(user.id)}>
-                          <Eye className="h-4 w-4 mr-1" /> Ver
-                        </Button>
-                        {user.state !== 'OK' && (
-                          <Button size="sm" onClick={() => handleStatusChange(user, 'OK')}>
-                            Activar
-                          </Button>
-                        )}
-                        {user.state !== 'BLOCKED' && (
-                          <Button size="sm" variant="destructive" onClick={() => handleStatusChange(user, 'BLOCKED')}>
-                            Bloquear
-                          </Button>
-                        )}
                       </div>
                     </div>
                   ))}
@@ -730,13 +751,20 @@ export default function UsersPage() {
                   {pendingPayouts.map((user) => (
                     <div 
                       key={user.id} 
-                      className={`border rounded-lg p-4 ${!user.hasBankAccount ? 'bg-yellow-50 border-yellow-200' : 'hover:bg-gray-50'} transition-colors`}
+                      className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                        !user.hasBankAccount 
+                          ? 'bg-yellow-50 border-yellow-200 hover:shadow-md' 
+                          : 'hover:bg-gray-50 hover:shadow-md'
+                      }`}
+                      onClick={() => viewUserDetails(user.id)}
                     >
                       <div className="flex items-start justify-between">
                         {/* Info del usuario */}
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
-                            <p className="font-semibold text-lg">{user.name}</p>
+                            <p className="font-semibold text-lg group-hover:text-blue-600 transition-colors">
+                              {user.name}
+                            </p>
                             {!user.hasBankAccount && (
                               <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
                                 <AlertTriangle className="h-3 w-3 mr-1" />
@@ -775,17 +803,6 @@ export default function UsersPage() {
                               <Badge variant="outline">{user.tier}</Badge>
                             </div>
                           </div>
-                        </div>
-
-                        {/* Acciones */}
-                        <div className="flex gap-2 ml-4 flex-shrink-0">
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            onClick={() => viewUserDetails(user.id)}
-                          >
-                            <Eye className="h-4 w-4 mr-1" /> Ver detalles
-                          </Button>
                         </div>
                       </div>
                     </div>
