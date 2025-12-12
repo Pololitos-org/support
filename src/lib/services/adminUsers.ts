@@ -197,7 +197,7 @@ export const adminUsersService = {
   getAllUsers: async (filters?: UserFilters): Promise<UsersResponse> => {
     try {
       const params = new URLSearchParams();
-      
+
       if (filters) {
         if (filters.page) params.append('page', filters.page.toString());
         if (filters.limit) params.append('limit', filters.limit.toString());
@@ -208,9 +208,9 @@ export const adminUsersService = {
 
       const endpoint = `/api/admin/users${params.toString() ? `?${params}` : ''}`;
       console.log('🔍 Fetching users from:', endpoint);
-      
-      const response = await api.get<{success: boolean; data: UsersResponse}>(endpoint);
-      
+
+      const response = await api.get<{ success: boolean; data: UsersResponse }>(endpoint);
+
       if (response.data?.success) {
         return response.data.data;
       } else {
@@ -228,15 +228,15 @@ export const adminUsersService = {
   getUserDetails: async (userId: number): Promise<AdminUser> => {
     try {
       console.log('👤 Fetching user details for ID:', userId);
-      const response = await api.get<{success: boolean; data: AdminUser}>(`/api/admin/users/${userId}`);
-      
+      const response = await api.get<{ success: boolean; data: AdminUser }>(`/api/admin/users/${userId}`);
+
       if (response.data?.success) {
         const user = response.data.data;
-        
+
         if (user.bankAccount) {
           console.log('💳 Bank account loaded for user:', user.id);
         }
-        
+
         return user;
       } else {
         throw new Error('Invalid response format');
@@ -251,7 +251,7 @@ export const adminUsersService = {
    * 🆕 Obtener tareas del usuario (como cliente y trabajador)
    */
   getUserTasks: async (
-    userId: number, 
+    userId: number,
     options?: {
       limit?: number;
       offset?: number;
@@ -261,7 +261,7 @@ export const adminUsersService = {
   ): Promise<UserTasksResponse> => {
     try {
       const params = new URLSearchParams();
-      
+
       if (options?.limit) params.append('limit', options.limit.toString());
       if (options?.offset) params.append('offset', options.offset.toString());
       if (options?.role) params.append('role', options.role);
@@ -269,9 +269,9 @@ export const adminUsersService = {
 
       const endpoint = `/api/admin/users/${userId}/tasks${params.toString() ? `?${params}` : ''}`;
       console.log('📋 Fetching user tasks:', endpoint);
-      
+
       const response = await api.get<UserTasksResponse>(endpoint);
-      
+
       if (response.data?.success) {
         console.log('✅ Tasks loaded:', {
           asClient: response.data.data.asClient.length,
@@ -299,15 +299,15 @@ export const adminUsersService = {
   ): Promise<UserActivityResponse> => {
     try {
       const params = new URLSearchParams();
-      
+
       if (options?.limit) params.append('limit', options.limit.toString());
       if (options?.days) params.append('days', options.days.toString());
 
       const endpoint = `/api/admin/users/${userId}/activity${params.toString() ? `?${params}` : ''}`;
       console.log('⚡ Fetching user activity:', endpoint);
-      
+
       const response = await api.get<UserActivityResponse>(endpoint);
-      
+
       if (response.data?.success) {
         console.log('✅ Activity loaded:', response.data.data.length, 'events');
         return response.data;
@@ -326,8 +326,8 @@ export const adminUsersService = {
   updateUserStatus: async (userId: number, updates: UserStatusUpdate): Promise<void> => {
     try {
       console.log('🔄 Updating user status:', { userId, ...updates });
-      const response = await api.patch<{success: boolean; message?: string}>(`/api/admin/users/${userId}/status`, updates);
-      
+      const response = await api.patch<{ success: boolean; message?: string }>(`/api/admin/users/${userId}/status`, updates);
+
       if (!response.data?.success) {
         throw new Error(response.data?.message || 'Failed to update user status');
       }
@@ -346,7 +346,7 @@ export const adminUsersService = {
       const response = await api.get<PendingPayoutsResponse>(
         `/api/admin/users/pending-payouts?minBalance=${minBalance}`
       );
-      
+
       if (response.data?.success) {
         console.log('✅ Pending payouts fetched:', response.data.count, 'users');
         return response.data;
@@ -360,8 +360,31 @@ export const adminUsersService = {
   },
 
   /**
-   * Obtener estadísticas del dashboard
+   * Ejecutar pago manual (Payout)
    */
+  releasePayment: async (taskId: number, offerId: number, workerAmount: number, serviceFee: number): Promise<void> => {
+    try {
+      console.log('💸 Processing manual payout for task:', taskId);
+      const response = await api.post<{ success: boolean; status: string }>('/api/admin/payments/release', {
+        taskId,
+        offerId,
+        workerAmount,
+        serviceFee
+      });
+
+
+      if (!response.data || (response.data.status !== 'PAYMENT_COMPLETED' && response.data.status !== 'PAYMENT_PENDING')) {
+        // Si la respuesta no es la esperada, lanzamos error
+        if (!response.data?.success && !response.data?.status) {
+          throw new Error('Error processed payment');
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error executing payout:', error);
+      throw error;
+    }
+  },
+
   getDashboardStats: async (): Promise<any> => {
     try {
       const response = await api.get<any>('/api/admin/dashboard/stats');

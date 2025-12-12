@@ -5,12 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from '@/components/ui/select';
 import {
   Dialog,
@@ -27,14 +27,14 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { 
-  Search, 
-  Filter, 
-  Eye, 
-  Ban, 
+import {
+  Search,
+  Filter,
+  Eye,
+  Ban,
   CheckCircle,
   XCircle,
-  User, 
+  User,
   Users,
   Calendar,
   Star,
@@ -49,28 +49,33 @@ import {
   Copy,
   Check
 } from 'lucide-react';
-import { 
-  adminUsersService, 
-  AdminUser, 
-  UserFilters, 
+import {
+  adminUsersService,
+  AdminUser,
+  UserFilters,
   UserStatusUpdate,
-  PendingPayoutUser 
+  PendingPayoutUser,
+  UserTask
 } from '@/lib/services/adminUsers';
 
 export default function UsersPage() {
   // Estados principales
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [pendingPayouts, setPendingPayouts] = useState<PendingPayoutUser[]>([]);
+  // 🆕 Tasks state
+  const [userTasks, setUserTasks] = useState<UserTask[]>([]);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
+
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingPayouts, setIsLoadingPayouts] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  
+
   // Tab activo
   const [activeTab, setActiveTab] = useState<'all' | 'payouts'>('all');
-  
+
   // Paginación
   const [pagination, setPagination] = useState({
     currentPage: 1,
@@ -164,6 +169,54 @@ export default function UsersPage() {
     }
   };
 
+  // 🆕 Load user tasks
+  const loadUserTasks = async (userId: number) => {
+    setIsLoadingTasks(true);
+    try {
+      const response = await adminUsersService.getUserTasks(userId, { limit: 100, role: 'worker', status: 'completed' });
+      // Filter only tasks that need payout (Payment Held)
+      const tasksToPay = response.data.asWorker.filter(t => t.paymentStatus === 'PAYMENT_HELD');
+      setUserTasks(tasksToPay);
+    } catch (error) {
+      console.error('Error loading user tasks:', error);
+    } finally {
+      setIsLoadingTasks(false);
+    }
+  };
+
+  // 🆕 Handle Payout
+  const handlePayout = async (task: UserTask) => {
+    if (!confirm(`¿Estás seguro de liberar el pago de ${formatMoney(task.earnedAmount || 0)} para la tarea "${task.title}"?`)) {
+      return;
+    }
+
+    try {
+      // Necesitamos offerId y serviceFee. Si no vienen en el objeto task, habría que pedirlos o asegurarnos que vengan.
+      // Asumiremos que UserTask tiene offerId y netAmount es lo que se paga.
+      if (!task.offerId || !task.earnedAmount) {
+        alert('Error: Faltan datos de la oferta para procesar el pago');
+        return;
+      }
+
+      await adminUsersService.releasePayment(
+        task.id,
+        task.offerId,
+        task.earnedAmount,
+        task.platformFee || 0 // Si no hay fee, enviamos 0
+      );
+
+      alert('✅ Pago liberado exitosamente');
+      // Recargar datos
+      if (selectedUser) {
+        await viewUserDetails(selectedUser.id);
+        await loadPendingPayouts();
+      }
+    } catch (error) {
+      console.error('Error processing payout:', error);
+      alert('❌ Error al procesar el pago. Revisa la consola o intenta de nuevo.');
+    }
+  };
+
   // Cargar pagos pendientes
   const loadPendingPayouts = async () => {
     setIsLoadingPayouts(true);
@@ -193,6 +246,10 @@ export default function UsersPage() {
     try {
       const userDetails = await adminUsersService.getUserDetails(userId);
       setSelectedUser(userDetails);
+
+      // 🆕 Load tasks if we are in payouts tab or just load them anyway
+      await loadUserTasks(userId);
+
       setShowDetailsModal(true);
     } catch (error) {
       console.error('Error fetching user details:', error);
@@ -284,8 +341,8 @@ export default function UsersPage() {
             Gestiona los usuarios de la plataforma
           </p>
         </div>
-        <Button 
-          onClick={activeTab === 'all' ? loadUsers : loadPendingPayouts} 
+        <Button
+          onClick={activeTab === 'all' ? loadUsers : loadPendingPayouts}
           disabled={activeTab === 'all' ? isLoading : isLoadingPayouts}
         >
           {(activeTab === 'all' ? isLoading : isLoadingPayouts) ? 'Cargando...' : 'Actualizar'}
@@ -320,7 +377,7 @@ export default function UsersPage() {
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center">
@@ -379,7 +436,7 @@ export default function UsersPage() {
                       placeholder="Buscar por nombre, email o teléfono..."
                       className="pl-10 h-11"
                       value={filters.search || ''}
-                      onChange={(e) => setFilters({...filters, search: e.target.value})}
+                      onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                       onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
                     />
                   </div>
@@ -392,7 +449,7 @@ export default function UsersPage() {
                   </label>
                   <Select
                     value={filters.status || 'ALL'}
-                    onValueChange={(value) => setFilters({...filters, status: value as any})}
+                    onValueChange={(value) => setFilters({ ...filters, status: value as any })}
                   >
                     <SelectTrigger className="h-11">
                       <SelectValue placeholder="Estado" />
@@ -415,7 +472,7 @@ export default function UsersPage() {
                     value={filters.verified === undefined ? 'ALL' : filters.verified.toString()}
                     onValueChange={(value) => {
                       const verified = value === 'ALL' ? undefined : value === 'true';
-                      setFilters({...filters, verified});
+                      setFilters({ ...filters, verified });
                     }}
                   >
                     <SelectTrigger className="h-11">
@@ -434,8 +491,8 @@ export default function UsersPage() {
                   <label className="text-sm font-medium text-transparent mb-2 block">
                     Acción
                   </label>
-                  <Button 
-                    onClick={applyFilters} 
+                  <Button
+                    onClick={applyFilters}
                     className="w-full h-11 bg-blue-600 hover:bg-blue-700"
                     disabled={isLoading}
                   >
@@ -462,7 +519,7 @@ export default function UsersPage() {
                     <Badge variant="secondary" className="gap-1">
                       Búsqueda: {filters.search}
                       <button
-                        onClick={() => setFilters({...filters, search: ''})}
+                        onClick={() => setFilters({ ...filters, search: '' })}
                         className="ml-1 hover:bg-gray-300 rounded-full"
                       >
                         <XCircle className="h-3 w-3" />
@@ -473,7 +530,7 @@ export default function UsersPage() {
                     <Badge variant="secondary" className="gap-1">
                       Estado: {StatusDisplay[filters.status as keyof typeof StatusDisplay]}
                       <button
-                        onClick={() => setFilters({...filters, status: 'ALL'})}
+                        onClick={() => setFilters({ ...filters, status: 'ALL' })}
                         className="ml-1 hover:bg-gray-300 rounded-full"
                       >
                         <XCircle className="h-3 w-3" />
@@ -484,7 +541,7 @@ export default function UsersPage() {
                     <Badge variant="secondary" className="gap-1">
                       {filters.verified ? 'Verificados' : 'No verificados'}
                       <button
-                        onClick={() => setFilters({...filters, verified: undefined})}
+                        onClick={() => setFilters({ ...filters, verified: undefined })}
                         className="ml-1 hover:bg-gray-300 rounded-full"
                       >
                         <XCircle className="h-3 w-3" />
@@ -532,8 +589,8 @@ export default function UsersPage() {
                   <p className="text-sm text-gray-500 mb-4">
                     Intenta ajustar los filtros de búsqueda
                   </p>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={() => {
                       setFilters({
                         page: 1,
@@ -550,8 +607,8 @@ export default function UsersPage() {
               ) : (
                 <div className="space-y-4">
                   {users.map((user) => (
-                    <div 
-                      key={user.id} 
+                    <div
+                      key={user.id}
                       className="border rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer group"
                       onClick={() => viewUserDetails(user.id)}
                     >
@@ -575,13 +632,13 @@ export default function UsersPage() {
                         </div>
 
                         {/* Acciones - prevenir propagación del click */}
-                        <div 
+                        <div
                           className="flex gap-2 ml-4 flex-shrink-0"
                           onClick={(e) => e.stopPropagation()} // ✅ Importante: evita que se abra el modal
                         >
                           {user.state !== 'OK' && (
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleStatusChange(user, 'OK');
@@ -591,9 +648,9 @@ export default function UsersPage() {
                             </Button>
                           )}
                           {user.state !== 'BLOCKED' && (
-                            <Button 
-                              size="sm" 
-                              variant="destructive" 
+                            <Button
+                              size="sm"
+                              variant="destructive"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleStatusChange(user, 'BLOCKED');
@@ -652,7 +709,7 @@ export default function UsersPage() {
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center">
@@ -714,7 +771,7 @@ export default function UsersPage() {
                     className="h-11"
                   />
                 </div>
-                <Button 
+                <Button
                   onClick={() => loadPendingPayouts()}
                   className="h-11"
                   disabled={isLoadingPayouts}
@@ -749,13 +806,12 @@ export default function UsersPage() {
               ) : (
                 <div className="space-y-4">
                   {pendingPayouts.map((user) => (
-                    <div 
-                      key={user.id} 
-                      className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                        !user.hasBankAccount 
-                          ? 'bg-yellow-50 border-yellow-200 hover:shadow-md' 
-                          : 'hover:bg-gray-50 hover:shadow-md'
-                      }`}
+                    <div
+                      key={user.id}
+                      className={`border rounded-lg p-4 cursor-pointer transition-all ${!user.hasBankAccount
+                        ? 'bg-yellow-50 border-yellow-200 hover:shadow-md'
+                        : 'hover:bg-gray-50 hover:shadow-md'
+                        }`}
                       onClick={() => viewUserDetails(user.id)}
                     >
                       <div className="flex items-start justify-between">
@@ -772,7 +828,7 @@ export default function UsersPage() {
                               </Badge>
                             )}
                           </div>
-                          
+
                           <p className="text-sm text-gray-600 mb-1">{user.email}</p>
                           {user.phone && (
                             <p className="text-sm text-gray-600 mb-3">{user.phone}</p>
@@ -821,258 +877,307 @@ export default function UsersPage() {
             <DialogTitle className="text-2xl">Detalles de usuario</DialogTitle>
           </DialogHeader>
           {selectedUser && (
-            <div className="space-y-6">
-              {/* Información básica */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg border-b pb-2 flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Información Personal
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600">Nombre</p>
-                    <p className="font-medium">{selectedUser.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Email</p>
-                    <p className="font-medium">{selectedUser.email}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Teléfono</p>
-                    <p className="font-medium">{selectedUser.phone || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Estado</p>
-                    <Badge className={getStatusColor(selectedUser.state)}>
-                      {StatusDisplay[selectedUser.state]}
-                    </Badge>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Registrado</p>
-                    <p className="font-medium">{formatDate(selectedUser.createdAt)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Ubicación</p>
-                    <p className="font-medium">{selectedUser.location || 'N/A'}</p>
-                  </div>
-                </div>
-                {selectedUser.bio && (
-                  <div>
-                    <p className="text-sm text-gray-600">Biografía</p>
-                    <p className="font-medium text-sm mt-1">{selectedUser.bio}</p>
-                  </div>
-                )}
-              </div>
+            <Tabs defaultValue="info">
+              <TabsList className="grid w-full grid-cols-3"> {/* Changed to 3 cols */}
+                <TabsTrigger value="info">Información</TabsTrigger>
+                <TabsTrigger value="bank">Datos Bancarios</TabsTrigger>
+                <TabsTrigger value="payments">Pagos ({userTasks.length})</TabsTrigger> {/* New Tab Trigger */}
+              </TabsList>
 
-              {/* Estadísticas */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg border-b pb-2 flex items-center gap-2">
-                  <Star className="h-5 w-5" />
-                  Estadísticas
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600">Tareas completadas</p>
-                    <p className="font-medium text-xl">{selectedUser.totalTasks}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Calificación</p>
-                    <p className="font-medium text-xl flex items-center gap-1">
-                      <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
-                      {selectedUser.averageRating.toFixed(1)} ({selectedUser.totalRatings})
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Ganancias totales</p>
-                    <p className="font-medium text-xl">{formatMoney(selectedUser.earningsTotal)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Últimos 30 días</p>
-                    <p className="font-medium text-xl">
-                      {formatMoney(selectedUser.earningsLast30Days || 0)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Tier</p>
-                    <Badge variant="outline" className="text-base px-3 py-1">
-                      {selectedUser.tier || 'BRONZE'}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-
-              {/* Balance */}
-              {selectedUser.balance && (
+              <TabsContent value="info" className="space-y-6 py-4">
+                {/* Información básica */}
                 <div className="space-y-3">
                   <h3 className="font-semibold text-lg border-b pb-2 flex items-center gap-2">
-                    <DollarSign className="h-5 w-5" />
-                    Balance
+                    <User className="h-5 w-5" />
+                    Información Personal
                   </h3>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                      <p className="text-sm text-gray-600 mb-1">Disponible para retiro</p>
-                      <p className="font-bold text-2xl text-green-600">
-                        {formatMoney(selectedUser.balance.availableBalance)}
+                    <div>
+                      <p className="text-sm text-gray-600">Nombre</p>
+                      <p className="font-medium">{selectedUser.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Email</p>
+                      <p className="font-medium">{selectedUser.email}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Teléfono</p>
+                      <p className="font-medium">{selectedUser.phone || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Estado</p>
+                      <Badge className={getStatusColor(selectedUser.state)}>
+                        {StatusDisplay[selectedUser.state]}
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Registrado</p>
+                      <p className="font-medium">{formatDate(selectedUser.createdAt)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Ubicación</p>
+                      <p className="font-medium">{selectedUser.location || 'N/A'}</p>
+                    </div>
+                  </div>
+                  {selectedUser.bio && (
+                    <div>
+                      <p className="text-sm text-gray-600">Biografía</p>
+                      <p className="font-medium text-sm mt-1">{selectedUser.bio}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Estadísticas */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-lg border-b pb-2 flex items-center gap-2">
+                    <Star className="h-5 w-5" />
+                    Estadísticas
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-600">Tareas completadas</p>
+                      <p className="font-medium text-xl">{selectedUser.totalTasks}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Calificación</p>
+                      <p className="font-medium text-xl flex items-center gap-1">
+                        <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+                        {selectedUser.averageRating.toFixed(1)} ({selectedUser.totalRatings})
                       </p>
                     </div>
-                    <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                      <p className="text-sm text-gray-600 mb-1">Pendiente (en escrow)</p>
-                      <p className="font-bold text-2xl text-yellow-600">
-                        {formatMoney(selectedUser.balance.pendingBalance)}
+                    <div>
+                      <p className="text-sm text-gray-600">Ganancias totales</p>
+                      <p className="font-medium text-xl">{formatMoney(selectedUser.earningsTotal)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Últimos 30 días</p>
+                      <p className="font-medium text-xl">
+                        {formatMoney(selectedUser.earningsLast30Days || 0)}
                       </p>
                     </div>
-                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                      <p className="text-sm text-gray-600 mb-1">Total ganado</p>
-                      <p className="font-bold text-xl text-blue-600">
-                        {formatMoney(selectedUser.balance.totalEarnings)}
-                      </p>
-                    </div>
-                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                      <p className="text-sm text-gray-600 mb-1">Total retirado</p>
-                      <p className="font-bold text-xl text-gray-700">
-                        {formatMoney(selectedUser.balance.totalWithdrawn)}
-                      </p>
+                    <div>
+                      <p className="text-sm text-gray-600">Tier</p>
+                      <Badge variant="outline" className="text-base px-3 py-1">
+                        {selectedUser.tier || 'BRONZE'}
+                      </Badge>
                     </div>
                   </div>
                 </div>
-              )}
 
-              {/* Información Bancaria */}
-              {selectedUser.bankAccount ? (
-                <div className="space-y-3 bg-gradient-to-br from-yellow-50 to-orange-50 p-6 rounded-lg border-2 border-yellow-300">
-                  <h3 className="font-semibold text-lg flex items-center gap-2 text-yellow-900">
-                    <Banknote className="h-5 w-5" />
-                    Información Bancaria (Confidencial)
-                  </h3>
-                  
-                  <div className="bg-white rounded-lg p-4 border border-yellow-200">
+                {/* Balance */}
+                {selectedUser.balance && (
+                  <div className="space-y-3">
+                    <h3 className="font-semibold text-lg border-b pb-2 flex items-center gap-2">
+                      <DollarSign className="h-5 w-5" />
+                      Balance
+                    </h3>
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-gray-600">Titular de la cuenta</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <p className="font-medium">{selectedUser.bankAccount.nombreCompleto}</p>
-                          <button
-                            onClick={() => copyToClipboard(selectedUser.bankAccount!.nombreCompleto, 'nombre')}
-                            className="text-gray-400 hover:text-gray-600 transition-colors"
-                          >
-                            {copiedField === 'nombre' ? (
-                              <Check className="h-4 w-4 text-green-600" />
-                            ) : (
-                              <Copy className="h-4 w-4" />
-                            )}
-                          </button>
-                        </div>
+                      <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                        <p className="text-sm text-gray-600 mb-1">Disponible para retiro</p>
+                        <p className="font-bold text-2xl text-green-600">
+                          {formatMoney(selectedUser.balance.availableBalance)}
+                        </p>
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-600">RUT</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <p className="font-medium">{selectedUser.bankAccount.rut}</p>
-                          <button
-                            onClick={() => copyToClipboard(selectedUser.bankAccount!.rut, 'rut')}
-                            className="text-gray-400 hover:text-gray-600 transition-colors"
-                          >
-                            {copiedField === 'rut' ? (
-                              <Check className="h-4 w-4 text-green-600" />
-                            ) : (
-                              <Copy className="h-4 w-4" />
-                            )}
-                          </button>
-                        </div>
+                      <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                        <p className="text-sm text-gray-600 mb-1">Pendiente (en escrow)</p>
+                        <p className="font-bold text-2xl text-yellow-600">
+                          {formatMoney(selectedUser.balance.pendingBalance)}
+                        </p>
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Banco</p>
-                        <p className="font-medium mt-1">{selectedUser.bankAccount.banco}</p>
+                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                        <p className="text-sm text-gray-600 mb-1">Total ganado</p>
+                        <p className="font-bold text-xl text-blue-600">
+                          {formatMoney(selectedUser.balance.totalEarnings)}
+                        </p>
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Tipo de cuenta</p>
-                        <p className="font-medium mt-1 capitalize">{selectedUser.bankAccount.tipoCuenta}</p>
-                      </div>
-                      <div className="col-span-2 bg-yellow-100 p-3 rounded border border-yellow-300">
-                        <p className="text-sm text-gray-600 mb-1">Número de cuenta</p>
-                        <div className="flex items-center gap-2">
-                          <p className="font-mono font-bold text-xl text-gray-900">
-                            {selectedUser.bankAccount.numeroCuentaCompleto}
-                          </p>
-                          <button
-                            onClick={() => copyToClipboard(selectedUser.bankAccount!.numeroCuentaCompleto!, 'cuenta')}
-                            className="text-gray-400 hover:text-gray-600 transition-colors"
-                          >
-                            {copiedField === 'cuenta' ? (
-                              <Check className="h-5 w-5 text-green-600" />
-                            ) : (
-                              <Copy className="h-5 w-5" />
-                            )}
-                          </button>
-                        </div>
-                        <p className="text-xs text-yellow-800 mt-2 flex items-center gap-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          Información sensible - Usar solo para transferencias
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <p className="text-sm text-gray-600 mb-1">Total retirado</p>
+                        <p className="font-bold text-xl text-gray-700">
+                          {formatMoney(selectedUser.balance.totalWithdrawn)}
                         </p>
                       </div>
                     </div>
                   </div>
-                </div>
-              ) : (
-                <div className="space-y-3 bg-gray-50 p-6 rounded-lg border-2 border-gray-200">
-                  <h3 className="font-semibold text-lg flex items-center gap-2 text-gray-600">
-                    <AlertTriangle className="h-5 w-5" />
-                    Sin Información Bancaria
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    Este usuario no ha registrado información bancaria aún.
-                    No se pueden procesar pagos hasta que complete este paso.
-                  </p>
-                </div>
-              )}
+                )}
 
-              {/* Verificación */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg border-b pb-2 flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
-                  Verificación
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center gap-2">
-                    {selectedUser.identityVerified ? (
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    ) : (
-                      <XCircle className="h-5 w-5 text-gray-400" />
-                    )}
-                    <span className="text-sm">Identidad verificada</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {selectedUser.criminalRecordVerified ? (
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    ) : (
-                      <XCircle className="h-5 w-5 text-gray-400" />
-                    )}
-                    <span className="text-sm">Antecedentes verificados</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {selectedUser.addressVerified ? (
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    ) : (
-                      <XCircle className="h-5 w-5 text-gray-400" />
-                    )}
-                    <span className="text-sm">Dirección verificada</span>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Nivel de verificación</p>
-                    <Badge className={getVerificationColor(getVerificationLevel(selectedUser))}>
-                      {VerificationDisplay[getVerificationLevel(selectedUser)]}
-                    </Badge>
+                {/* Verificación */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-lg border-b pb-2 flex items-center gap-2">
+                    <Shield className="h-5 w-5" />
+                    Verificación
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center gap-2">
+                      {selectedUser.identityVerified ? (
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-gray-400" />
+                      )}
+                      <span className="text-sm">Identidad verificada</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {selectedUser.criminalRecordVerified ? (
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-gray-400" />
+                      )}
+                      <span className="text-sm">Antecedentes verificados</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {selectedUser.addressVerified ? (
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-gray-400" />
+                      )}
+                      <span className="text-sm">Dirección verificada</span>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Nivel de verificación</p>
+                      <Badge className={getVerificationColor(getVerificationLevel(selectedUser))}>
+                        {VerificationDisplay[getVerificationLevel(selectedUser)]}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </TabsContent>
+
+              {/* 🆕 TAB: Datos Bancarios */}
+              <TabsContent value="bank" className="space-y-6 py-4">
+                {selectedUser.bankAccount ? (
+                  <div className="space-y-3 bg-gradient-to-br from-yellow-50 to-orange-50 p-6 rounded-lg border-2 border-yellow-300">
+                    <h3 className="font-semibold text-lg flex items-center gap-2 text-yellow-900">
+                      <Banknote className="h-5 w-5" />
+                      Información Bancaria (Confidencial)
+                    </h3>
+
+                    <div className="bg-white rounded-lg p-4 border border-yellow-200">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-gray-600">Titular de la cuenta</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <p className="font-medium">{selectedUser.bankAccount.nombreCompleto}</p>
+                            <button
+                              onClick={() => copyToClipboard(selectedUser.bankAccount!.nombreCompleto, 'nombre')}
+                              className="text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                              {copiedField === 'nombre' ? (
+                                <Check className="h-4 w-4 text-green-600" />
+                              ) : (
+                                <Copy className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">RUT</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <p className="font-medium">{selectedUser.bankAccount.rut}</p>
+                            <button
+                              onClick={() => copyToClipboard(selectedUser.bankAccount!.rut, 'rut')}
+                              className="text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                              {copiedField === 'rut' ? (
+                                <Check className="h-4 w-4 text-green-600" />
+                              ) : (
+                                <Copy className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">Banco</p>
+                          <p className="font-medium mt-1">{selectedUser.bankAccount.banco}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">Tipo de cuenta</p>
+                          <p className="font-medium mt-1 capitalize">{selectedUser.bankAccount.tipoCuenta}</p>
+                        </div>
+                        <div className="col-span-2 bg-yellow-100 p-3 rounded border border-yellow-300">
+                          <p className="text-sm text-gray-600 mb-1">Número de cuenta</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-mono font-bold text-xl text-gray-900">
+                              {selectedUser.bankAccount.numeroCuentaCompleto}
+                            </p>
+                            <button
+                              onClick={() => copyToClipboard(selectedUser.bankAccount!.numeroCuentaCompleto!, 'cuenta')}
+                              className="text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                              {copiedField === 'cuenta' ? (
+                                <Check className="h-5 w-5 text-green-600" />
+                              ) : (
+                                <Copy className="h-5 w-5" />
+                              )}
+                            </button>
+                          </div>
+                          <p className="text-xs text-yellow-800 mt-2 flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Información sensible - Usar solo para transferencias
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3 bg-gray-50 p-6 rounded-lg border-2 border-gray-200">
+                    <h3 className="font-semibold text-lg flex items-center gap-2 text-gray-600">
+                      <AlertTriangle className="h-5 w-5" />
+                      Sin Información Bancaria
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      Este usuario no ha registrado información bancaria aún.
+                      No se pueden procesar pagos hasta que complete este paso.
+                    </p>
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* 🆕 TAB: Pagos (Tareas por Pagar) */}
+              <TabsContent value="payments" className="space-y-4 py-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-lg">Tareas con Pago Retenido</h3>
+                  <Badge variant="outline">{userTasks.length} pendientes</Badge>
+                </div>
+
+                {isLoadingTasks ? (
+                  <div className="flex justify-center p-4"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div></div>
+                ) : userTasks.length === 0 ? (
+                  <p className="text-gray-500 text-center py-4">No hay tareas pendientes de pago para este usuario.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {userTasks.map(task => (
+                      <div key={task.id} className="border p-3 rounded-lg flex justify-between items-center bg-yellow-50 border-yellow-200">
+                        <div>
+                          <p className="font-semibold">{task.title}</p>
+                          <p className="text-sm text-gray-600">Completada el: {formatDate(task.completed || '')}</p>
+                          <div className="flex gap-2 mt-1">
+                            <Badge variant="secondary">ID: {task.id}</Badge>
+                            <Badge className="bg-yellow-100 text-yellow-800">Retenido</Badge>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-lg text-green-700">{formatMoney(task.earnedAmount || 0)}</p>
+                          <Button
+                            size="sm"
+                            className="mt-2 bg-green-600 hover:bg-green-700 text-white"
+                            onClick={() => handlePayout(task)}
+                          >
+                            <DollarSign className="w-4 h-4 mr-1" /> Pagar
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           )}
           <DialogFooter className="flex gap-2">
             <Button variant="outline" onClick={() => setShowDetailsModal(false)}>
               Cerrar
             </Button>
             {selectedUser && selectedUser.state !== 'BLOCKED' && (
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
                 onClick={() => {
                   setShowDetailsModal(false);
                   handleStatusChange(selectedUser, 'BLOCKED');
@@ -1115,7 +1220,7 @@ export default function UsersPage() {
             <Button variant="outline" onClick={() => setShowStatusModal(false)}>
               Cancelar
             </Button>
-            <Button 
+            <Button
               onClick={confirmStatusChange}
               variant={statusUpdate.status === 'BLOCKED' ? 'destructive' : 'default'}
             >
