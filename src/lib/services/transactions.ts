@@ -23,6 +23,8 @@ export interface Transaction {
   userName?: string;
   userEmail?: string;
   taskTitle?: string;
+  taskPaymentStatus?: string;
+  cancellationReason?: string;
 }
 
 export interface TransactionStats {
@@ -31,28 +33,28 @@ export interface TransactionStats {
   activeUsers: number;
   completedTasks: number;
   pendingTasks: number;
-  
+
   // Montos
   totalPaidToWorkers: number;
   totalFeesCollected: number;
   periodFeesCollected: number;
   heldAmount: number; // En escrow
   totalRefunds: number;
-  
+
   // Por tipo
   byType: Array<{
     type: string;
     count: number;
     total: number;
   }>;
-  
+
   // Temporal
   monthlyFees: Array<{
     month: string;
     fees: number;
     count: number;
   }>;
-  
+
   dailyTransactions: Array<{
     date: string;
     count: number;
@@ -82,19 +84,19 @@ export const transactionsService = {
     try {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
-      
+
       const endDate = new Date();
-      
+
       console.log(`📊 Fetching transaction stats for ${days} days...`);
-      
+
       const response = await api.get<TransactionStats>(
         `/api/admin/transactions/stats?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`
       );
-      
+
       if (!response.data) {
         throw new Error('No data received from server');
       }
-      
+
       return response.data;
     } catch (error) {
       console.error('❌ Error fetching transaction stats:', error);
@@ -108,11 +110,11 @@ export const transactionsService = {
   async getRecentTransactions(limit: number = 50, offset: number = 0): Promise<Transaction[]> {
     try {
       console.log(`📋 Fetching recent transactions (limit: ${limit}, offset: ${offset})...`);
-      
+
       const response = await api.get<Transaction[]>(
         `/api/admin/transactions/recent?limit=${limit}&offset=${offset}`
       );
-      
+
       return response.data || [];
     } catch (error) {
       console.error('❌ Error fetching recent transactions:', error);
@@ -128,7 +130,7 @@ export const transactionsService = {
       const response = await api.get<Transaction[]>(
         `/api/admin/transactions/task/${taskId}`
       );
-      
+
       return response.data || [];
     } catch (error) {
       console.error('❌ Error fetching task transactions:', error);
@@ -144,17 +146,17 @@ export const transactionsService = {
   async getUserTransactions(userId: number, limit: number = 50): Promise<UserTransactionsResponse> {
     try {
       console.log(`👤 Fetching transactions for user ${userId}...`);
-      
+
       const response = await api.get<UserTransactionsResponse>(
         `/api/admin/transactions/user/${userId}?limit=${limit}`
       );
-      
+
       // Validar estructura de respuesta
       if (!response.data) {
         throw new Error('No data received from server');
       }
-      
-      return response.data || { 
+
+      return response.data || {
         balance: {
           userId,
           availableBalance: 0,
@@ -162,7 +164,7 @@ export const transactionsService = {
           totalEarnings: 0,
           totalWithdrawn: 0
         },
-        transactions: [] 
+        transactions: []
       };
     } catch (error) {
       console.error('❌ Error fetching user transactions:', error);
@@ -186,7 +188,7 @@ export const transactionsService = {
         totalEarnings: number;
         escrowBalance: number;
       }>('/api/admin/transactions/platform-balance');
-      
+
       return response.data || {
         totalAvailable: 0,
         totalPending: 0,
@@ -195,6 +197,28 @@ export const transactionsService = {
       };
     } catch (error) {
       console.error('❌ Error fetching platform balance:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Procesa un reembolso para una transacción
+   */
+  async refundTransaction(paymentId: number): Promise<{ success: boolean; message: string; refundTransactionId?: number }> {
+    try {
+      console.log(`💰 Requesting refund for payment ${paymentId}...`);
+      const response = await api.post<{ success: boolean; message: string; refundTransactionId?: number }>(
+        `/api/admin/payments/${paymentId}/refund`,
+        {}
+      );
+
+      if (!response.data) {
+        throw new Error('No se recibió respuesta del servidor');
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error processing refund:', error);
       throw error;
     }
   }

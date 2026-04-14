@@ -40,6 +40,7 @@ interface AdminVerificationDocument {
   documentType: 'IDENTITY' | 'ADDRESS' | 'CRIMINAL_RECORD' | 'OTHER';
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   fileUrl: string;
+  fileType?: string;
   createdAt: string;
   updatedAt: string;
   rejectionReason?: string;
@@ -466,17 +467,35 @@ export default function VerificationPage() {
                 </div>
               )}
 
-              {/* Imagen del documento */}
+              {/* Imagen o PDF del documento */}
               <div className="border rounded-lg p-4">
-                <h4 className="font-semibold mb-2">Documento:</h4>
-                <img
-                  src={selectedDocument.fileUrl}
-                  alt="Documento"
-                  className="max-w-full h-auto rounded"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = '/placeholder-document.png';
-                  }}
-                />
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-semibold">Documento:</h4>
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={selectedDocument.fileUrl} target="_blank" rel="noopener noreferrer">
+                      Abrir en nueva pestaña
+                    </a>
+                  </Button>
+                </div>
+                
+                <div className="bg-gray-50 rounded flex items-center justify-center overflow-hidden min-h-[300px]">
+                  {selectedDocument.fileType?.includes('pdf') || selectedDocument.fileUrl.toLowerCase().endsWith('.pdf') ? (
+                    <iframe
+                      src={`${selectedDocument.fileUrl}#view=FitH`}
+                      className="w-full h-[500px] border-0"
+                      title="PDF Document"
+                    />
+                  ) : (
+                    <img
+                      src={selectedDocument.fileUrl}
+                      alt="Documento"
+                      className="max-w-full h-auto rounded"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/placeholder-document.png';
+                      }}
+                    />
+                  )}
+                </div>
               </div>
 
               {/* Acciones en el modal */}

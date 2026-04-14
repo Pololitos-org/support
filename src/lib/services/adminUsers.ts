@@ -104,6 +104,8 @@ export interface UserTask {
   budget: number;
   originalBudget?: number;
   paymentStatus: string;
+  status?: string;
+  moderatedAt?: string;
   completed?: string;
   cancelled?: string;
   createdAt: string;
@@ -186,6 +188,22 @@ export interface UserActivityResponse {
     to: string;
     days: number;
   };
+}
+
+export interface WorkerApprovalRequest {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string;
+  workerApprovalRequestedAt: string;
+  identityVerified: boolean;
+  criminalRecordVerified: boolean;
+}
+
+export interface WorkerApprovalsResponse {
+  success: boolean;
+  data: WorkerApprovalRequest[];
+  count: number;
 }
 
 // ==================== SERVICIO ====================
@@ -391,6 +409,96 @@ export const adminUsersService = {
       return response.data || {};
     } catch (error) {
       console.error('❌ Error fetching dashboard stats:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Obtener usuarios pendientes de aprobación como proveedor
+   */
+  getPendingWorkerApprovals: async (): Promise<any> => {
+    try {
+      console.log('👷 Fetching pending worker approvals');
+      const response = await api.get<any>('/api/admin/users?isPendingWorkerApproval=true');
+      if (response.data?.success) {
+        return response.data.data;
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (error) {
+      console.error('❌ Error fetching pending worker approvals:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Aprobar usuario como proveedor
+   */
+  approveWorker: async (userId: number): Promise<void> => {
+    try {
+      console.log('✅ Approving worker:', userId);
+      const response = await api.post<{ success: boolean }>(`/api/admin/users/${userId}/approve-worker`, {});
+      if (!response.data?.success) {
+        throw new Error('Failed to approve worker');
+      }
+    } catch (error) {
+      console.error('❌ Error approving worker:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Rechazar usuario como proveedor
+   */
+  rejectWorker: async (userId: number): Promise<void> => {
+    try {
+      console.log('❌ Rejecting worker:', userId);
+      const response = await api.post<{ success: boolean }>(`/api/admin/users/${userId}/reject-worker`, {});
+      if (!response.data?.success) {
+        throw new Error('Failed to reject worker');
+      }
+    } catch (error) {
+      console.error('❌ Error rejecting worker:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Moderar una tarea (Soft Delete)
+   */
+  moderateTask: async (taskId: number, reason?: string): Promise<{ success: boolean }> => {
+    try {
+      console.log('🛡️ Moderating task:', taskId);
+      const response = await api.post<{ success: boolean; message: string }>(`/api/admin/tasks/${taskId}/moderate`, { reason });
+      return { success: !!response.data?.success };
+    } catch (error) {
+      console.error('❌ Error moderating task:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Restaurar una tarea moderada
+   */
+  restoreTask: async (taskId: number): Promise<{ success: boolean }> => {
+    try {
+      const response = await api.post<{ success: boolean }>(`/api/admin/tasks/${taskId}/restore`);
+      return { success: !!response.data?.success };
+    } catch (error) {
+      console.error('❌ Error restoring task:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Eliminar una tarea permanentemente
+   */
+  deleteTaskPermanently: async (taskId: number): Promise<{ success: boolean }> => {
+    try {
+      const response = await api.delete<{ success: boolean }>(`/api/admin/tasks/${taskId}`);
+      return { success: !!response.data?.success };
+    } catch (error) {
+      console.error('❌ Error deleting task permanently:', error);
       throw error;
     }
   },

@@ -57,6 +57,7 @@ import {
   PendingPayoutUser,
   UserTask
 } from '@/lib/services/adminUsers';
+import UserTasksTab from './[id]/_components/UserTasksTab';
 
 export default function UsersPage() {
   // Estados principales
@@ -74,7 +75,10 @@ export default function UsersPage() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   // Tab activo
-  const [activeTab, setActiveTab] = useState<'all' | 'payouts'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'payouts' | 'approvals'>('all');
+
+  const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
+  const [isLoadingApprovals, setIsLoadingApprovals] = useState(false);
 
   // Paginación
   const [pagination, setPagination] = useState({
@@ -231,6 +235,45 @@ export default function UsersPage() {
     }
   };
 
+  // Cargar aprobaciones pendientes
+  const loadPendingApprovals = async () => {
+    setIsLoadingApprovals(true);
+    try {
+      const response = await adminUsersService.getPendingWorkerApprovals();
+      setPendingApprovals(response.users || []);
+    } catch (error) {
+      console.error('❌ Error loading pending approvals:', error);
+    } finally {
+      setIsLoadingApprovals(false);
+    }
+  };
+
+  // Aprobar proveedor
+  const handleApproveWorker = async (userId: number) => {
+    if (!confirm('¿Estás seguro de aprobar a este usuario como proveedor?')) return;
+    try {
+      await adminUsersService.approveWorker(userId);
+      alert('✅ Usuario aprobado como proveedor');
+      loadPendingApprovals();
+    } catch (error) {
+      console.error('❌ Error approving worker:', error);
+      alert('Error al aprobar proveedor');
+    }
+  };
+
+  // Rechazar proveedor
+  const handleRejectWorker = async (userId: number) => {
+    if (!confirm('¿Estás seguro de rechazar la solicitud de este proveedor?')) return;
+    try {
+      await adminUsersService.rejectWorker(userId);
+      alert('❌ Solicitud rechazada');
+      loadPendingApprovals();
+    } catch (error) {
+      console.error('❌ Error rejecting worker:', error);
+      alert('Error al rechazar proveedor');
+    }
+  };
+
   // Manejar cambio de página
   const handlePageChange = (newPage: number) => {
     setFilters({ ...filters, page: newPage });
@@ -316,6 +359,12 @@ export default function UsersPage() {
     }
   }, [activeTab, minBalance]);
 
+  useEffect(() => {
+    if (activeTab === 'approvals') {
+      loadPendingApprovals();
+    }
+  }, [activeTab]);
+
   // Estadísticas rápidas
   const stats = {
     total: pagination.totalUsers,
@@ -342,16 +391,20 @@ export default function UsersPage() {
           </p>
         </div>
         <Button
-          onClick={activeTab === 'all' ? loadUsers : loadPendingPayouts}
-          disabled={activeTab === 'all' ? isLoading : isLoadingPayouts}
+          onClick={() => {
+            if (activeTab === 'all') loadUsers();
+            else if (activeTab === 'payouts') loadPendingPayouts();
+            else if (activeTab === 'approvals') loadPendingApprovals();
+          }}
+          disabled={isLoading || isLoadingPayouts || isLoadingApprovals}
         >
-          {(activeTab === 'all' ? isLoading : isLoadingPayouts) ? 'Cargando...' : 'Actualizar'}
+          {(isLoading || isLoadingPayouts || isLoadingApprovals) ? 'Cargando...' : 'Actualizar'}
         </Button>
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'all' | 'payouts')}>
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
+        <TabsList className="grid w-full max-w-lg grid-cols-3">
           <TabsTrigger value="all">
             <Users className="h-4 w-4 mr-2" />
             Todos los Usuarios
@@ -359,6 +412,10 @@ export default function UsersPage() {
           <TabsTrigger value="payouts">
             <Banknote className="h-4 w-4 mr-2" />
             Pagos Pendientes
+          </TabsTrigger>
+          <TabsTrigger value="approvals">
+            <Shield className="h-4 w-4 mr-2" />
+            Aprobaciones (Proveedores)
           </TabsTrigger>
         </TabsList>
 
@@ -868,6 +925,92 @@ export default function UsersPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* TAB: Aprobaciones de Proveedores */}
+        <TabsContent value="approvals" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Solicitudes de Proveedor Pendientes ({pendingApprovals.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoadingApprovals ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+                  <p className="text-gray-500">Cargando solicitudes...</p>
+                </div>
+              ) : pendingApprovals.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Shield className="h-16 w-16 text-gray-300 mb-4" />
+                  <p className="text-lg font-medium text-gray-900 mb-2">
+                    No hay solicitudes pendientes
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    Todos los proveedores están al día.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {pendingApprovals.map((user) => (
+                    <div
+                      key={user.id}
+                      className="border rounded-lg p-4 bg-white hover:border-blue-300 hover:shadow-md transition-all"
+                    >
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="font-bold text-lg">{user.name}</h3>
+                            <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
+                              PENDIENTE
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-1">{user.email}</p>
+                          <p className="text-sm text-gray-600 mb-3">
+                            Solicitud enviada el: {user.workerApprovalRequestedAt ? formatDate(user.workerApprovalRequestedAt) : 'N/A'}
+                          </p>
+
+                          <div className="flex gap-3">
+                            <Badge className={user.identityVerified ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+                              {user.identityVerified ? <CheckCircle className="w-3 h-3 mr-1 inline" /> : <XCircle className="w-3 h-3 mr-1 inline" />}
+                              Identidad
+                            </Badge>
+                            <Badge className={user.criminalRecordVerified ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+                              {user.criminalRecordVerified ? <CheckCircle className="w-3 h-3 mr-1 inline" /> : <XCircle className="w-3 h-3 mr-1 inline" />}
+                              Antecedentes
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => viewUserDetails(user.id)}
+                          >
+                            <Eye className="w-4 h-4 mr-1" /> Ver Perfil
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleRejectWorker(user.id)}
+                          >
+                            <XCircle className="w-4 h-4 mr-1" /> Rechazar
+                          </Button>
+                          <Button
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                            size="sm"
+                            onClick={() => handleApproveWorker(user.id)}
+                          >
+                            <CheckCircle className="w-4 h-4 mr-1" /> Aprobar
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Modal de detalles completo */}
@@ -878,13 +1021,14 @@ export default function UsersPage() {
           </DialogHeader>
           {selectedUser && (
             <Tabs defaultValue="info">
-              <TabsList className="grid w-full grid-cols-3"> {/* Changed to 3 cols */}
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="info">Información</TabsTrigger>
                 <TabsTrigger value="bank">Datos Bancarios</TabsTrigger>
-                <TabsTrigger value="payments">Pagos ({userTasks.length})</TabsTrigger> {/* New Tab Trigger */}
+                <TabsTrigger value="payments">Pagos ({userTasks.length})</TabsTrigger>
+                <TabsTrigger value="tasks">Tareas</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="info" className="space-y-6 py-4">
+              <TabsContent value="info" className="space-y-6 py-4 min-h-[500px]">
                 {/* Información básica */}
                 <div className="space-y-3">
                   <h3 className="font-semibold text-lg border-b pb-2 flex items-center gap-2">
@@ -1042,7 +1186,7 @@ export default function UsersPage() {
               </TabsContent>
 
               {/* 🆕 TAB: Datos Bancarios */}
-              <TabsContent value="bank" className="space-y-6 py-4">
+              <TabsContent value="bank" className="space-y-6 py-4 min-h-[500px]">
                 {selectedUser.bankAccount ? (
                   <div className="space-y-3 bg-gradient-to-br from-yellow-50 to-orange-50 p-6 rounded-lg border-2 border-yellow-300">
                     <h3 className="font-semibold text-lg flex items-center gap-2 text-yellow-900">
@@ -1132,7 +1276,7 @@ export default function UsersPage() {
               </TabsContent>
 
               {/* 🆕 TAB: Pagos (Tareas por Pagar) */}
-              <TabsContent value="payments" className="space-y-4 py-4">
+              <TabsContent value="payments" className="space-y-4 py-4 min-h-[500px]">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-lg">Tareas con Pago Retenido</h3>
                   <Badge variant="outline">{userTasks.length} pendientes</Badge>
@@ -1168,6 +1312,11 @@ export default function UsersPage() {
                     ))}
                   </div>
                 )}
+              </TabsContent>
+
+              {/* 🆕 TAB: Tareas (Moderación y Listado Completo) */}
+              <TabsContent value="tasks" className="space-y-4 py-4 min-h-[500px]">
+                <UserTasksTab userId={selectedUser.id} />
               </TabsContent>
             </Tabs>
           )}

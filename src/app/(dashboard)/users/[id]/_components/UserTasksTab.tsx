@@ -29,8 +29,22 @@ import {
   XCircle,
   Calendar,
   DollarSign,
-  AlertCircle
+  AlertCircle,
+  Trash2,
+  AlertTriangle,
+  RefreshCw,
+  Trash
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Props {
   userId: number;
@@ -42,6 +56,8 @@ export default function UserTasksTab({ userId }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<'all' | 'completed' | 'active' | 'cancelled'>('all');
   const [activeRole, setActiveRole] = useState<'client' | 'worker'>('worker');
+  const [isModerating, setIsModerating] = useState(false);
+  const [taskToModerate, setTaskToModerate] = useState<number | null>(null);
 
   useEffect(() => {
     loadTasks();
@@ -66,6 +82,48 @@ export default function UserTasksTab({ userId }: Props) {
       console.error('Error loading tasks:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleModerate = async () => {
+    if (!taskToModerate) return;
+    
+    setIsModerating(true);
+    try {
+      await adminUsersService.moderateTask(taskToModerate);
+      alert('✅ Tarea moderada exitosamente');
+      // Recargar tareas después de moderar
+      await loadTasks();
+      setTaskToModerate(null);
+    } catch (error: any) {
+      console.error('Error moderating task:', error);
+      alert(error.message || 'Error al moderar la tarea');
+    } finally {
+      setIsModerating(false);
+    }
+  };
+
+  const handleRestore = async (taskId: number) => {
+    if (!confirm('¿Estás seguro de que deseas restaurar esta tarea? Volverá a estar visible en la plataforma.')) return;
+    
+    try {
+      await adminUsersService.restoreTask(taskId);
+      alert('✅ Tarea restaurada exitosamente');
+      await loadTasks();
+    } catch (error: any) {
+      alert(error.message || 'Error al restaurar la tarea');
+    }
+  };
+
+  const handleDeletePermanently = async (taskId: number) => {
+    if (!confirm('⚠️ ADVERTENCIA: Esta acción eliminará la tarea y todas sus ofertas de forma PERMANENTE de la base de datos. ¿Deseas continuar?')) return;
+    
+    try {
+      await adminUsersService.deleteTaskPermanently(taskId);
+      alert('✅ Tarea eliminada permanentemente');
+      await loadTasks();
+    } catch (error: any) {
+      alert(error.message || 'Error al eliminar la tarea');
     }
   };
 
@@ -127,11 +185,24 @@ export default function UserTasksTab({ userId }: Props) {
               Cancelada
             </Badge>
           )}
-          {!task.completed && !task.cancelled && (
+          {task.status === 'ASIGNADA' && !task.completed && !task.cancelled && (
             <Badge className="bg-blue-100 text-blue-800">
               <Clock className="h-3 w-3 mr-1" />
               En curso
             </Badge>
+          )}
+          {task.status === 'MODERADA' && (
+            <div className="flex flex-col items-end gap-1">
+              <Badge className="bg-orange-100 text-orange-800 border-orange-200">
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                Tarea Moderada
+              </Badge>
+              {task.moderatedAt && (
+                <span className="text-[10px] text-orange-600 font-medium">
+                  {formatDate(task.moderatedAt)}
+                </span>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -213,6 +284,42 @@ export default function UserTasksTab({ userId }: Props) {
           </div>
         </div>
       )}
+
+      {/* Acciones de Moderación */}
+      <div className="mt-4 flex justify-end gap-2">
+        {task.status === 'MODERADA' ? (
+          <>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="text-green-600 border-green-200 hover:bg-green-50"
+              onClick={() => handleRestore(task.id)}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Restaurar Tarea
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="text-red-600 border-red-200 hover:bg-red-50"
+              onClick={() => handleDeletePermanently(task.id)}
+            >
+              <Trash className="h-4 w-4 mr-2" />
+              Eliminar Permanente
+            </Button>
+          </>
+        ) : (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+            onClick={() => setTaskToModerate(task.id)}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Moderar Tarea
+          </Button>
+        )}
+      </div>
     </div>
   );
 
@@ -354,6 +461,36 @@ export default function UserTasksTab({ userId }: Props) {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Confirmación de Moderación */}
+      <AlertDialog open={!!taskToModerate} onOpenChange={(open) => !open && setTaskToModerate(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              ¿Confirmar Moderación?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción ocultará la tarea permanentemente de todas las vistas públicas. 
+              El usuario no podrá verla ni recibir ofertas, pero el registro permanecerá 
+              en la base de datos para fines de auditoría.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isModerating}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault();
+                handleModerate();
+              }}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={isModerating}
+            >
+              {isModerating ? 'Moderando...' : 'Sí, Moderar Tarea'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
