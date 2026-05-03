@@ -8,11 +8,11 @@ import {
   Shield, 
   MessageSquare, 
   BarChart3, 
-  Settings,
   LogOut,
   Menu,
   X,
-  DollarSign
+  DollarSign,
+  Megaphone
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -57,6 +57,7 @@ export default function DashboardLayout({
     { icon: MessageSquare, label: 'Soporte', href: '/support' },
     { icon: BarChart3, label: 'Analytics', href: '/analytics' },
     { icon: DollarSign, label: 'Transacciones', href: '/transactions' },
+    { icon: Megaphone, label: 'Comunicaciones', href: '/communications' },
     // { icon: Settings, label: 'Configuración', href: '/settings' },
   ];
 

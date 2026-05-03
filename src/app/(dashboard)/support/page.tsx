@@ -34,11 +34,13 @@ import {
   RefreshCw,
   UserCheck,
   Zap,
-  Archive
+  Archive,
+  Send
 } from 'lucide-react';
 import { 
   adminSupportService, 
   SupportTicket, 
+  TicketMessage,
   TicketFilters,
   getStatusDisplayText,
   getPriorityDisplayText,
@@ -54,6 +56,12 @@ export default function SupportPage() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   
+  // Estados de mensajes
+  const [messages, setMessages] = useState<TicketMessage[]>([]);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [isReplying, setIsReplying] = useState(false);
+
   // Estados para actualización de tickets
   const [ticketUpdate, setTicketUpdate] = useState({
     status: '',
@@ -94,9 +102,46 @@ export default function SupportPage() {
       const ticketDetails = await adminSupportService.getTicketDetails(ticket.id);
       setSelectedTicket(ticketDetails);
       setShowDetailsModal(true);
+      
+      // Cargar mensajes
+      setIsLoadingMessages(true);
+      setMessages([]);
+      setReplyText('');
+      try {
+        const ticketMessages = await adminSupportService.getTicketMessages(ticket.id);
+        setMessages(ticketMessages);
+      } catch (msgError) {
+        console.error('Error fetching messages:', msgError);
+      } finally {
+        setIsLoadingMessages(false);
+      }
     } catch (error) {
       console.error('Error fetching ticket details:', error);
       alert('Error al cargar detalles del ticket');
+    }
+  };
+
+  // Enviar respuesta
+  const handleSendReply = async () => {
+    if (!selectedTicket || !replyText.trim()) return;
+    
+    setIsReplying(true);
+    try {
+      await adminSupportService.replyToTicket(selectedTicket.id, replyText);
+      setReplyText('');
+      
+      const ticketMessages = await adminSupportService.getTicketMessages(selectedTicket.id);
+      setMessages(ticketMessages);
+      
+      const ticketDetails = await adminSupportService.getTicketDetails(selectedTicket.id);
+      setSelectedTicket(ticketDetails);
+      
+      loadTickets();
+    } catch (error) {
+      console.error('Error enviando respuesta:', error);
+      alert('Error al enviar la respuesta');
+    } finally {
+      setIsReplying(false);
     }
   };
 
@@ -431,7 +476,7 @@ export default function SupportPage() {
             </DialogTitle>
           </DialogHeader>
           {selectedTicket && (
-            <div className="space-y-4 max-h-96 overflow-y-auto">
+            <div className="space-y-4 max-h-[80vh] overflow-y-auto px-1 pb-4">
               {/* Info básica */}
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div><strong>Usuario:</strong> {selectedTicket.userName}</div>
@@ -449,25 +494,68 @@ export default function SupportPage() {
               {/* Descripción */}
               <div className="border-t pt-4">
                 <h4 className="font-semibold mb-2">Descripción:</h4>
-                <div className="bg-gray-50 p-3 rounded text-sm">
+                <div className="bg-gray-50 p-3 rounded text-sm whitespace-pre-wrap">
                   {selectedTicket.description}
                 </div>
               </div>
 
-              {/* Métricas adicionales */}
-              {(selectedTicket.responseCount || selectedTicket.lastResponseAt) && (
-                <div className="border-t pt-4">
-                  <h4 className="font-semibold mb-2">Actividad:</h4>
-                  <div className="text-sm space-y-1">
-                    {selectedTicket.responseCount && (
-                      <p>Respuestas: {selectedTicket.responseCount}</p>
+              {/* Mensajes */}
+              <div className="border-t pt-4 flex flex-col h-[400px]">
+                <h4 className="font-semibold mb-2">Mensajes de Soporte:</h4>
+                <div className="bg-white border rounded-lg p-4 space-y-4 flex-1 overflow-y-auto flex flex-col mb-4 bg-gray-50/50">
+                  {isLoadingMessages ? (
+                    <div className="text-center py-4 text-sm text-gray-500 my-auto">Cargando mensajes...</div>
+                  ) : messages.length === 0 ? (
+                    <div className="text-center py-4 text-sm text-gray-500 my-auto flex flex-col items-center">
+                      <MessageSquare className="h-8 w-8 text-gray-300 mb-2" />
+                      No hay mensajes adicionales.
+                    </div>
+                  ) : (
+                    messages.map((msg) => (
+                      <div 
+                        key={msg.id} 
+                        className={`flex flex-col p-3 rounded-lg max-w-[85%] shadow-sm ${msg.isFromStaff || !msg.isFromCustomer ? 'bg-blue-600 text-white ml-auto border border-blue-700' : 'bg-white border border-gray-200 mr-auto'}`}
+                      >
+                        <div className="flex justify-between items-center mb-1 gap-4 w-full">
+                          <span className={`font-semibold text-xs ${msg.isFromStaff || !msg.isFromCustomer ? 'text-blue-100' : 'text-gray-700'}`}>
+                            {msg.isFromStaff || !msg.isFromCustomer ? 'Soporte (Staff)' : msg.fromUserName || selectedTicket.userName}
+                          </span>
+                          <span className={`text-[10px] ${msg.isFromStaff || !msg.isFromCustomer ? 'text-blue-200' : 'text-gray-400'}`}>
+                            {formatDate(msg.createdAt)}
+                          </span>
+                        </div>
+                        <p className={`text-sm whitespace-pre-wrap ${msg.isFromStaff || !msg.isFromCustomer ? 'text-white' : 'text-gray-800'}`}>
+                          {msg.message}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+                
+                {/* Responder */}
+                <div className="flex flex-col gap-2 shrink-0">
+                  <Textarea
+                    placeholder={selectedTicket.status === 'CLOSED' ? "El ticket está cerrado. No puedes responder." : "Escribe una respuesta para el usuario..."}
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    className="min-h-[80px]"
+                    disabled={isReplying || selectedTicket.status === 'CLOSED'}
+                  />
+                  <div className="flex justify-end gap-2 items-center">
+                    {selectedTicket.status === 'CLOSED' && (
+                      <span className="text-xs text-red-500 font-medium">Este ticket está cerrado.</span>
                     )}
-                    {selectedTicket.lastResponseAt && (
-                      <p>Última respuesta: {formatDate(selectedTicket.lastResponseAt)}</p>
-                    )}
+                    <Button 
+                      onClick={handleSendReply} 
+                      disabled={!replyText.trim() || isReplying || selectedTicket.status === 'CLOSED'}
+                      className="gap-2 bg-blue-600 hover:bg-blue-700"
+                    >
+                      {isReplying ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      Envíar respuesta
+                    </Button>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
           )}
         </DialogContent>
