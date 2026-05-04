@@ -54,7 +54,48 @@ export default function CommunicationsPage() {
   const [pushMessage, setPushMessage] = useState('¡Sube tus documentos para activar tu cuenta y empezar a trabajar en Pololitos!');
   const [pushMode, setPushMode] = useState<PushMode>('INCOMPLETE_PROFILES');
   const [pushPath, setPushPath] = useState('');
+  const [pushType, setPushType] = useState<'ACTION_NEEDED' | 'CUSTOM_MESSAGE'>('CUSTOM_MESSAGE');
   const [pushResult, setPushResult] = useState<{ success: boolean; message: string; isError?: boolean } | null>(null);
+
+  const PREDETERMINED_MESSAGES = [
+    {
+      id: 'verify',
+      label: 'Recordatorio Verificación',
+      icon: <UserCheck className="h-4 w-4" />,
+      title: '¡Verifica tu cuenta!',
+      message: 'Completa tu perfil subiendo tus documentos para empezar a recibir ofertas.',
+      path: '/(authenticated)/account/verification',
+      type: 'ACTION_NEEDED' as const,
+      color: 'bg-amber-100 text-amber-700 hover:bg-amber-200 border-amber-200'
+    },
+    {
+      id: 'welcome',
+      label: 'Bienvenida',
+      icon: <Megaphone className="h-4 w-4" />,
+      title: '¡Bienvenido a Pololitos! 🚀',
+      message: 'Estamos felices de tenerte aquí. Explora las tareas disponibles cerca de ti.',
+      path: '/(authenticated)/(tabs)/home',
+      type: 'CUSTOM_MESSAGE' as const,
+      color: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-emerald-200'
+    },
+    {
+      id: 'messages',
+      label: 'Revisar Mensajes',
+      icon: <MessageSquare className="h-4 w-4" />,
+      title: 'Nuevo mensaje recibido',
+      message: 'Tienes mensajes pendientes en tus conversaciones. Entra para responder.',
+      path: '/(authenticated)/(tabs)/messages',
+      type: 'CUSTOM_MESSAGE' as const,
+      color: 'bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-200'
+    }
+  ];
+
+  const applyTemplate = (template: typeof PREDETERMINED_MESSAGES[0]) => {
+    setPushTitle(template.title);
+    setPushMessage(template.message);
+    setPushPath(template.path);
+    setPushType(template.type);
+  };
 
   // ─── User Search State ────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
@@ -146,7 +187,14 @@ export default function CommunicationsPage() {
     setPushResult(null);
     try {
       const userIds = pushMode === 'SPECIFIC_USERS' ? selectedUsers.map(u => u.id) : [];
-      const result = await communicationsService.sendPushNotification(pushTitle, pushMessage, pushMode, userIds, pushPath.trim() || undefined);
+      const result = await communicationsService.sendPushNotification(
+        pushTitle, 
+        pushMessage, 
+        pushMode, 
+        userIds, 
+        pushPath.trim() || undefined,
+        pushType
+      );
       if (result.success) {
         setPushResult({
           success: true,
@@ -209,6 +257,26 @@ export default function CommunicationsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex-1 space-y-4">
+            
+            {/* Mensajes Predeterminados */}
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-2 block">Mensajes Predeterminados</label>
+              <div className="flex flex-wrap gap-2">
+                {PREDETERMINED_MESSAGES.map(tmpl => (
+                  <button
+                    key={tmpl.id}
+                    type="button"
+                    onClick={() => applyTemplate(tmpl)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all ${tmpl.color}`}
+                  >
+                    {tmpl.icon}
+                    {tmpl.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="border-t border-gray-100 pt-2" />
 
             {/* Modo de envío */}
             <div>

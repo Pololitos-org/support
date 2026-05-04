@@ -24,12 +24,13 @@ export const communicationsService = {
     message: string, 
     mode: 'INCOMPLETE_PROFILES' | 'SPECIFIC_USERS',
     userIds: number[],
-    path?: string
+    path?: string,
+    type?: 'ACTION_NEEDED' | 'CUSTOM_MESSAGE'
   ): Promise<{ success: boolean; sent?: number; message?: string; error?: string }> {
     try {
       const response = await api.post<{ success: boolean; sent?: number; message?: string; error?: string }>(
         '/api/admin/communications/push-notification',
-        { title, message, mode, userIds, path }
+        { title, message, mode, userIds, path, type }
       );
       return response.data || { success: false, error: 'No data returned' };
     } catch (error: any) {
