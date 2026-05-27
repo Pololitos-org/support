@@ -2,11 +2,11 @@
 
 import { useState, useRef } from 'react';
 import { Megaphone, Mail, Bell, Loader2, AlertCircle, Search, X, Users, UserCheck, MessageSquare } from 'lucide-react';
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
   CardTitle,
   CardFooter
 } from '@/components/ui/card';
@@ -188,10 +188,10 @@ export default function CommunicationsPage() {
     try {
       const userIds = pushMode === 'SPECIFIC_USERS' ? selectedUsers.map(u => u.id) : [];
       const result = await communicationsService.sendPushNotification(
-        pushTitle, 
-        pushMessage, 
-        pushMode, 
-        userIds, 
+        pushTitle,
+        pushMessage,
+        pushMode,
+        userIds,
         pushPath.trim() || undefined,
         pushType
       );
@@ -231,12 +231,12 @@ export default function CommunicationsPage() {
     pushMode === 'SPECIFIC_USERS'
       ? `Se enviará la notificación a ${selectedUsers.length} usuario(s) seleccionado(s). Esta acción no se puede deshacer.`
       : pushMode === 'ALL_USERS'
-      ? 'Se enviará la notificación push a todos los usuarios activos de Pololitos. Esta acción no se puede deshacer.'
-      : pushMode === 'WORKERS'
-      ? 'Se enviará la notificación push a todos los usuarios con intención de trabajo (WORK o BOTH). Esta acción no se puede deshacer.'
-      : pushMode === 'HIRERS'
-      ? 'Se enviará la notificación push a todos los usuarios que contratan (HIRE o BOTH). Esta acción no se puede deshacer.'
-      : 'Se enviará la notificación push a todos los trabajadores que no han completado su perfil. Esta acción no se puede deshacer.';
+        ? 'Se enviará la notificación push a todos los usuarios activos de Pololitos. Esta acción no se puede deshacer.'
+        : pushMode === 'WORKERS'
+          ? 'Se enviará la notificación push a todos los usuarios con intención de trabajo (WORK o BOTH). Esta acción no se puede deshacer.'
+          : pushMode === 'HIRERS'
+            ? 'Se enviará la notificación push a todos los usuarios que contratan (HIRE o BOTH). Esta acción no se puede deshacer.'
+            : 'Se enviará la notificación push a todos los trabajadores que no han completado su perfil. Esta acción no se puede deshacer.';
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-6">
@@ -251,7 +251,7 @@ export default function CommunicationsPage() {
       </div>
 
       <div className="grid md:grid-cols-2 gap-6 items-start">
-        
+
         {/* ── TARJETA PUSH ─────────────────────────────────────────── */}
         <Card className="flex flex-col">
           <CardHeader>
@@ -264,7 +264,7 @@ export default function CommunicationsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex-1 space-y-4">
-            
+
             {/* Mensajes Predeterminados */}
             <div>
               <label className="text-sm font-medium text-gray-700 mb-2 block">Mensajes Predeterminados</label>
@@ -290,20 +290,19 @@ export default function CommunicationsPage() {
               <label className="text-sm font-medium text-gray-700 mb-2 block">Destinatarios</label>
               <div className="grid grid-cols-2 gap-2">
                 {([
-                  { mode: 'ALL_USERS',          icon: <Users className="h-4 w-4" />,     label: 'Todos los usuarios' },
-                  { mode: 'WORKERS',             icon: <UserCheck className="h-4 w-4" />, label: 'Trabajadores' },
-                  { mode: 'HIRERS',              icon: <MessageSquare className="h-4 w-4" />, label: 'Contratadores' },
-                  { mode: 'INCOMPLETE_PROFILES', icon: <AlertCircle className="h-4 w-4" />,  label: 'Perfiles incompletos' },
-                ] as { mode: PushMode; icon: JSX.Element; label: string }[]).map(opt => (
+                  { mode: 'ALL_USERS', icon: <Users className="h-4 w-4" />, label: 'Todos los usuarios' },
+                  { mode: 'WORKERS', icon: <UserCheck className="h-4 w-4" />, label: 'Trabajadores' },
+                  { mode: 'HIRERS', icon: <MessageSquare className="h-4 w-4" />, label: 'Contratadores' },
+                  { mode: 'INCOMPLETE_PROFILES', icon: <AlertCircle className="h-4 w-4" />, label: 'Perfiles incompletos' },
+                ]).map(opt => (
                   <button
                     key={opt.mode}
                     type="button"
-                    onClick={() => setPushMode(opt.mode)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                      pushMode === opt.mode
+                    onClick={() => setPushMode(opt.mode as PushMode)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${pushMode === opt.mode
                         ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
                         : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}
+                      }`}
                   >
                     {opt.icon}
                     {opt.label}
@@ -312,11 +311,10 @@ export default function CommunicationsPage() {
                 <button
                   type="button"
                   onClick={() => setPushMode('SPECIFIC_USERS')}
-                  className={`col-span-2 flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                    pushMode === 'SPECIFIC_USERS'
+                  className={`col-span-2 flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${pushMode === 'SPECIFIC_USERS'
                       ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
                       : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   <Search className="h-4 w-4" />
                   Usuarios específicos
@@ -389,31 +387,31 @@ export default function CommunicationsPage() {
             {/* Título y Mensaje */}
             <div>
               <label className="text-sm font-medium text-gray-700 mb-1 block">Título de Notificación</label>
-              <Input 
-                value={pushTitle} 
-                onChange={(e) => setPushTitle(e.target.value)} 
-                placeholder="Ej. ¡Falta poco!" 
+              <Input
+                value={pushTitle}
+                onChange={(e) => setPushTitle(e.target.value)}
+                placeholder="Ej. ¡Falta poco!"
               />
             </div>
             <div>
               <label className="text-sm font-medium text-gray-700 mb-1 block">Cuerpo del Mensaje</label>
-              <Textarea 
-                value={pushMessage} 
-                onChange={(e) => setPushMessage(e.target.value)} 
+              <Textarea
+                value={pushMessage}
+                onChange={(e) => setPushMessage(e.target.value)}
                 rows={3}
-                placeholder="Escribe el mensaje aquí..." 
+                placeholder="Escribe el mensaje aquí..."
               />
             </div>
             <div>
               <label className="text-sm font-medium text-gray-700 mb-1 block">Ruta de Navegación (Opcional)</label>
-              <Input 
-                value={pushPath} 
-                onChange={(e) => setPushPath(e.target.value)} 
-                placeholder="Ej. /(authenticated)/account/verification" 
+              <Input
+                value={pushPath}
+                onChange={(e) => setPushPath(e.target.value)}
+                placeholder="Ej. /(authenticated)/account/verification"
               />
               <p className="text-[10px] text-gray-400 mt-1">Si se deja vacío, redirigirá a la pantalla de verificación de cuenta por defecto.</p>
             </div>
-            
+
             {pushResult && (
               <div className={`p-3 rounded-md text-sm flex items-start gap-2 ${pushResult.isError ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
                 <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
@@ -424,8 +422,8 @@ export default function CommunicationsPage() {
           <CardFooter>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button 
-                  className="w-full" 
+                <Button
+                  className="w-full"
                   disabled={isLoadingPush || (pushMode === 'SPECIFIC_USERS' && selectedUsers.length === 0)}
                 >
                   {isLoadingPush ? (
@@ -478,14 +476,14 @@ export default function CommunicationsPage() {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div>
               <label className="text-sm font-medium text-gray-700 mb-1 block">
                 Asunto del Correo <span className="text-gray-400 font-normal ml-2">(Usa {'{{firstName}}'} para el nombre)</span>
               </label>
-              <Input 
-                value={sesSubject} 
-                onChange={(e) => setSesSubject(e.target.value)} 
+              <Input
+                value={sesSubject}
+                onChange={(e) => setSesSubject(e.target.value)}
               />
             </div>
 
@@ -493,9 +491,9 @@ export default function CommunicationsPage() {
               <label className="text-sm font-medium text-gray-700 mb-1 block">
                 Cuerpo HTML <span className="text-gray-400 font-normal ml-2">(Usa {'{{firstName}}'} para el nombre)</span>
               </label>
-              <Textarea 
-                value={sesHtml} 
-                onChange={(e) => setSesHtml(e.target.value)} 
+              <Textarea
+                value={sesHtml}
+                onChange={(e) => setSesHtml(e.target.value)}
                 rows={10}
                 className="font-mono text-xs"
               />
