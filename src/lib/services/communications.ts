@@ -20,9 +20,9 @@ export const communicationsService = {
    * Nuevo endpoint flexible: envía push a perfiles incompletos o a usuarios específicos
    */
   async sendPushNotification(
-    title: string, 
-    message: string, 
-    mode: 'INCOMPLETE_PROFILES' | 'SPECIFIC_USERS',
+    title: string,
+    message: string,
+    mode: 'INCOMPLETE_PROFILES' | 'SPECIFIC_USERS' | 'ALL_USERS' | 'WORKERS' | 'HIRERS',
     userIds: number[],
     path?: string,
     type?: 'ACTION_NEEDED' | 'CUSTOM_MESSAGE'

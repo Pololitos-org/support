@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { communicationsService, UserSearchResult } from '@/lib/services/communications';
 
-type PushMode = 'INCOMPLETE_PROFILES' | 'SPECIFIC_USERS';
+type PushMode = 'INCOMPLETE_PROFILES' | 'SPECIFIC_USERS' | 'ALL_USERS' | 'WORKERS' | 'HIRERS';
 
 export default function CommunicationsPage() {
   // ─── Direct Message State ──────────────────────────────────────
@@ -227,9 +227,16 @@ export default function CommunicationsPage() {
     }
   };
 
-  const confirmDescription = pushMode === 'SPECIFIC_USERS'
-    ? `Se enviará la notificación a ${selectedUsers.length} usuario(s) seleccionado(s). Esta acción no se puede deshacer.`
-    : 'Se enviará la notificación push a todos los trabajadores que no han completado su perfil. Esta acción no se puede deshacer.';
+  const confirmDescription =
+    pushMode === 'SPECIFIC_USERS'
+      ? `Se enviará la notificación a ${selectedUsers.length} usuario(s) seleccionado(s). Esta acción no se puede deshacer.`
+      : pushMode === 'ALL_USERS'
+      ? 'Se enviará la notificación push a todos los usuarios activos de Pololitos. Esta acción no se puede deshacer.'
+      : pushMode === 'WORKERS'
+      ? 'Se enviará la notificación push a todos los usuarios con intención de trabajo (WORK o BOTH). Esta acción no se puede deshacer.'
+      : pushMode === 'HIRERS'
+      ? 'Se enviará la notificación push a todos los usuarios que contratan (HIRE o BOTH). Esta acción no se puede deshacer.'
+      : 'Se enviará la notificación push a todos los trabajadores que no han completado su perfil. Esta acción no se puede deshacer.';
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-6">
@@ -253,7 +260,7 @@ export default function CommunicationsPage() {
             </div>
             <CardTitle>Notificación Push</CardTitle>
             <CardDescription>
-              Envía una notificación push personalizada a trabajadores con perfil incompleto o a usuarios específicos.
+              Envía una notificación push personalizada a todos los usuarios, por segmento de intención, a perfiles incompletos, o a usuarios específicos.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex-1 space-y-4">
@@ -282,28 +289,36 @@ export default function CommunicationsPage() {
             <div>
               <label className="text-sm font-medium text-gray-700 mb-2 block">Destinatarios</label>
               <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPushMode('INCOMPLETE_PROFILES')}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                    pushMode === 'INCOMPLETE_PROFILES'
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  <Users className="h-4 w-4" />
-                  Perfiles incompletos
-                </button>
+                {([
+                  { mode: 'ALL_USERS',          icon: <Users className="h-4 w-4" />,     label: 'Todos los usuarios' },
+                  { mode: 'WORKERS',             icon: <UserCheck className="h-4 w-4" />, label: 'Trabajadores' },
+                  { mode: 'HIRERS',              icon: <MessageSquare className="h-4 w-4" />, label: 'Contratadores' },
+                  { mode: 'INCOMPLETE_PROFILES', icon: <AlertCircle className="h-4 w-4" />,  label: 'Perfiles incompletos' },
+                ] as { mode: PushMode; icon: JSX.Element; label: string }[]).map(opt => (
+                  <button
+                    key={opt.mode}
+                    type="button"
+                    onClick={() => setPushMode(opt.mode)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      pushMode === opt.mode
+                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {opt.icon}
+                    {opt.label}
+                  </button>
+                ))}
                 <button
                   type="button"
                   onClick={() => setPushMode('SPECIFIC_USERS')}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                  className={`col-span-2 flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
                     pushMode === 'SPECIFIC_USERS'
                       ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
                       : 'border-gray-200 text-gray-600 hover:bg-gray-50'
                   }`}
                 >
-                  <UserCheck className="h-4 w-4" />
+                  <Search className="h-4 w-4" />
                   Usuarios específicos
                 </button>
               </div>
