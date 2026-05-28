@@ -68,7 +68,7 @@ export const adminService = {
 
   // Assign ticket to staff member
   assignTicket: async (ticketId: number, staffId: number): Promise<void> => {
-    await api.post(`/api/support/admin/tickets/${ticketId}/assign`, { staffId });
+    await api.patch(`/api/support/admin/tickets/${ticketId}`, { assignedTo: staffId });
   },
 
   // Get staff performance metrics

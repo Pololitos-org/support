@@ -109,7 +109,7 @@ export const adminSupportService = {
   // Obtener mensajes de un ticket
   getTicketMessages: async (ticketId: number): Promise<TicketMessage[]> => {
     try {
-      const response = await api.get<TicketMessage[]>(`/api/support/admin/tickets/${ticketId}/messages`);
+      const response = await api.get<TicketMessage[]>(`/api/support/tickets/${ticketId}/messages`);
       return response.data || [];
     } catch (error) {
       console.error('❌ Error fetching ticket messages:', error);
@@ -138,7 +138,7 @@ export const adminSupportService = {
   replyToTicket: async (ticketId: number, message: string): Promise<TicketMessage> => {
     try {
       console.log('💬 Replying to ticket:', ticketId);
-      const response = await api.post<TicketMessage>(`/api/support/admin/tickets/${ticketId}/reply`, { 
+      const response = await api.post<TicketMessage>(`/api/support/tickets/${ticketId}/messages`, { 
         message 
       });
       
@@ -157,7 +157,7 @@ export const adminSupportService = {
   assignTicket: async (ticketId: number, staffId: number): Promise<void> => {
     try {
       console.log('👤 Assigning ticket:', { ticketId, staffId });
-      await api.post(`/api/support/admin/tickets/${ticketId}/assign`, { staffId });
+      await api.patch(`/api/support/admin/tickets/${ticketId}`, { assignedTo: staffId });
     } catch (error) {
       console.error('❌ Error assigning ticket:', error);
       throw error;
