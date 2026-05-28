@@ -32,16 +32,9 @@ export default function LoginPage() {
     setError('');
 
     try {
-      console.log('🚀 Starting admin login...');
-
       const { loginData, staffData } = await authService.loginAsAdmin({
         email,
         password,
-      });
-
-      console.log('✅ Admin login successful:', {
-        user: loginData.user,
-        role: staffData.role,
       });
 
       router.push('/dashboard');

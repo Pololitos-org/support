@@ -31,9 +31,7 @@ export default function DashboardPage() {
     try {
       setIsLoading(true);
       setError(null);
-      console.log('📊 Loading dashboard stats...');
       const data = await dashboardService.getStats();
-      console.log('✅ Dashboard stats loaded:', data);
       setStats(data);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';

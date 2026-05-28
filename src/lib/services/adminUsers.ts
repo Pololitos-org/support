@@ -225,7 +225,6 @@ export const adminUsersService = {
       }
 
       const endpoint = `/api/admin/users${params.toString() ? `?${params}` : ''}`;
-      console.log('🔍 Fetching users from:', endpoint);
 
       const response = await api.get<{ success: boolean; data: UsersResponse }>(endpoint);
 
@@ -245,15 +244,12 @@ export const adminUsersService = {
    */
   getUserDetails: async (userId: number): Promise<AdminUser> => {
     try {
-      console.log('👤 Fetching user details for ID:', userId);
       const response = await api.get<{ success: boolean; data: AdminUser }>(`/api/admin/users/${userId}`);
 
       if (response.data?.success) {
         const user = response.data.data;
 
-        if (user.bankAccount) {
-          console.log('💳 Bank account loaded for user:', user.id);
-        }
+        if (user.bankAccount) {}
 
         return user;
       } else {
@@ -286,15 +282,10 @@ export const adminUsersService = {
       if (options?.status) params.append('status', options.status);
 
       const endpoint = `/api/admin/users/${userId}/tasks${params.toString() ? `?${params}` : ''}`;
-      console.log('📋 Fetching user tasks:', endpoint);
 
       const response = await api.get<UserTasksResponse>(endpoint);
 
       if (response.data?.success) {
-        console.log('✅ Tasks loaded:', {
-          asClient: response.data.data.asClient.length,
-          asWorker: response.data.data.asWorker.length
-        });
         return response.data;
       } else {
         throw new Error('Invalid response format');
@@ -322,12 +313,10 @@ export const adminUsersService = {
       if (options?.days) params.append('days', options.days.toString());
 
       const endpoint = `/api/admin/users/${userId}/activity${params.toString() ? `?${params}` : ''}`;
-      console.log('⚡ Fetching user activity:', endpoint);
 
       const response = await api.get<UserActivityResponse>(endpoint);
 
       if (response.data?.success) {
-        console.log('✅ Activity loaded:', response.data.data.length, 'events');
         return response.data;
       } else {
         throw new Error('Invalid response format');
@@ -343,7 +332,6 @@ export const adminUsersService = {
    */
   updateUserStatus: async (userId: number, updates: UserStatusUpdate): Promise<void> => {
     try {
-      console.log('🔄 Updating user status:', { userId, ...updates });
       const response = await api.patch<{ success: boolean; message?: string }>(`/api/admin/users/${userId}/status`, updates);
 
       if (!response.data?.success) {
@@ -360,13 +348,11 @@ export const adminUsersService = {
    */
   getPendingPayouts: async (minBalance: number = 1000): Promise<PendingPayoutsResponse> => {
     try {
-      console.log('💰 Fetching users with pending payouts (min:', minBalance, ')');
       const response = await api.get<PendingPayoutsResponse>(
         `/api/admin/users/pending-payouts?minBalance=${minBalance}`
       );
 
       if (response.data?.success) {
-        console.log('✅ Pending payouts fetched:', response.data.count, 'users');
         return response.data;
       } else {
         throw new Error('Invalid response format');
@@ -382,7 +368,6 @@ export const adminUsersService = {
    */
   releasePayment: async (taskId: number, offerId: number, workerAmount: number, serviceFee: number): Promise<void> => {
     try {
-      console.log('💸 Processing manual payout for task:', taskId);
       const response = await api.post<{ success: boolean; status: string }>('/api/admin/payments/release', {
         taskId,
         offerId,
@@ -418,7 +403,6 @@ export const adminUsersService = {
    */
   getPendingWorkerApprovals: async (): Promise<any> => {
     try {
-      console.log('👷 Fetching pending worker approvals');
       const response = await api.get<any>('/api/admin/users?isPendingWorkerApproval=true');
       if (response.data?.success) {
         return response.data.data;
@@ -436,7 +420,6 @@ export const adminUsersService = {
    */
   approveWorker: async (userId: number): Promise<void> => {
     try {
-      console.log('✅ Approving worker:', userId);
       const response = await api.post<{ success: boolean }>(`/api/admin/users/${userId}/approve-worker`, {});
       if (!response.data?.success) {
         throw new Error('Failed to approve worker');
@@ -452,7 +435,6 @@ export const adminUsersService = {
    */
   rejectWorker: async (userId: number): Promise<void> => {
     try {
-      console.log('❌ Rejecting worker:', userId);
       const response = await api.post<{ success: boolean }>(`/api/admin/users/${userId}/reject-worker`, {});
       if (!response.data?.success) {
         throw new Error('Failed to reject worker');
@@ -468,7 +450,6 @@ export const adminUsersService = {
    */
   moderateTask: async (taskId: number, reason?: string): Promise<{ success: boolean }> => {
     try {
-      console.log('🛡️ Moderating task:', taskId);
       const response = await api.post<{ success: boolean; message: string }>(`/api/admin/tasks/${taskId}/moderate`, { reason });
       return { success: !!response.data?.success };
     } catch (error) {

@@ -108,7 +108,6 @@ export default function VerificationPage() {
     setIsLoading(true);
     try {
       const docs = await adminVerificationService.getAllDocuments();
-      console.log('📄 Documentos cargados:', docs);
       setDocuments(docs);
       setFilteredDocuments(docs);
     } catch (error) {
@@ -148,7 +147,6 @@ export default function VerificationPage() {
   const handleApprove = async (id: number) => {
     try {
       await adminVerificationService.approveDocument(id);
-      console.log('✅ Documento aprobado:', id);
       await loadDocuments(); // Recargar lista
     } catch (error) {
       console.error('❌ Error approving document:', error);
@@ -165,7 +163,6 @@ export default function VerificationPage() {
 
     try {
       await adminVerificationService.rejectDocument(id, reason);
-      console.log('❌ Documento rechazado:', id, 'Razón:', reason);
       await loadDocuments(); // Recargar lista
     } catch (error) {
       console.error('❌ Error rejecting document:', error);

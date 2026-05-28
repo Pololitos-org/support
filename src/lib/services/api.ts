@@ -14,14 +14,6 @@ const API_CONFIG = {
   apiGatewayKey: process.env.NEXT_PUBLIC_API_GATEWAY_KEY || '',
 };
 
-// ✅ Debug de configuración al cargar
-console.log('🔧 API Configuration loaded:', {
-  baseUrl: API_CONFIG.baseUrl,
-  isDevelopment: API_CONFIG.isDevelopment,
-  hasApiKey: !!API_CONFIG.apiGatewayKey,
-  apiKeyPreview: API_CONFIG.apiGatewayKey ? `${API_CONFIG.apiGatewayKey.substring(0, 10)}...` : 'MISSING'
-});
-
 /**
  * Helper para construir URL completa con prefijo correcto
  */
@@ -29,20 +21,13 @@ function buildApiUrl(endpoint: string): string {
   const normalizedEndpoint = endpoint.startsWith('/') 
     ? endpoint 
     : `/${endpoint}`;
-  
+
   const fullPath = API_CONFIG.isDevelopment 
     ? `/dev${normalizedEndpoint}` 
     : normalizedEndpoint;
-  
+
   const url = `${API_CONFIG.baseUrl}${fullPath}`;
-  
-  console.log('🔗 Built URL:', {
-    original: endpoint,
-    normalized: normalizedEndpoint,
-    fullPath,
-    final: url
-  });
-  
+
   return url;
 }
 
@@ -52,7 +37,6 @@ function buildApiUrl(endpoint: string): string {
 function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
   const token = localStorage.getItem('accessToken');
-  console.log('🔑 Auth token:', token ? `${token.substring(0, 20)}...` : 'NO TOKEN');
   return token;
 }
 
@@ -69,15 +53,7 @@ export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<{ data?: T; status: number }> {
-  
   const url = buildApiUrl(endpoint);
-
-  console.log('🚀 API Request Starting:', {
-    method: options.method || 'GET',
-    url,
-    endpoint,
-    environment: API_CONFIG.isDevelopment ? 'development' : 'production',
-  });
 
   // ✅ Headers con API Gateway Key (SIEMPRE se incluye)
   const defaultHeaders: Record<string, string> = {
@@ -87,7 +63,6 @@ export async function apiRequest<T>(
   // ✅ SIEMPRE incluir API Gateway Key (en dev y prod)
   if (API_CONFIG.apiGatewayKey) {
     defaultHeaders['x-api-key'] = API_CONFIG.apiGatewayKey;
-    console.log('✅ Added x-api-key header');
   } else {
     console.error('❌ API Gateway Key NOT configured!');
     console.warn('⚠️ Request will likely fail without API Gateway Key');
@@ -97,10 +72,7 @@ export async function apiRequest<T>(
   const userToken = getAuthToken();
   if (userToken) {
     defaultHeaders['Authorization'] = `Bearer ${userToken}`;
-    console.log('✅ Added Authorization header');
-  } else {
-    console.log('ℹ️ No user token (this is OK for login endpoint)');
-  }
+  } else {}
 
   // Merge headers
   const headers = {
@@ -108,21 +80,10 @@ export async function apiRequest<T>(
     ...(options.headers as Record<string, string>),
   };
 
-  console.log('📋 Final headers:', Object.keys(headers));
-
   try {
-    console.log('🌐 Sending fetch request...');
-    
     const response = await fetch(url, {
       ...options,
       headers,
-    });
-
-    console.log('📡 API Response received:', {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok,
-      headers: Object.fromEntries(response.headers.entries())
     });
 
     const contentType = response.headers.get('content-type');
@@ -130,18 +91,13 @@ export async function apiRequest<T>(
 
     if (contentType?.includes('application/json')) {
       const textData = await response.text();
-      console.log('📄 Response body (raw):', textData.substring(0, 200));
-      
+
       try {
         data = JSON.parse(textData);
-        console.log('✅ Parsed JSON successfully');
       } catch (e) {
         console.error('❌ Failed to parse JSON:', e);
-        console.log('Raw response:', textData);
       }
-    } else {
-      console.log('ℹ️ Response is not JSON, content-type:', contentType);
-    }
+    } else {}
 
     if (!response.ok) {
       console.error('❌ Response not OK:', {
@@ -155,7 +111,6 @@ export async function apiRequest<T>(
 
       // Manejar token expirado
       if (response.status === 401) {
-        console.log('🔑 Token expired (401), redirecting to login...');
         if (typeof window !== 'undefined') {
           localStorage.removeItem('accessToken');
           window.location.href = '/login';
@@ -165,14 +120,11 @@ export async function apiRequest<T>(
       throw apiError;
     }
 
-    console.log('✅ API Request Successful');
     return { data, status: response.status };
-    
   } catch (error) {
     console.error('💥 API Request threw error:', error);
     
     if (error instanceof ApiError) {
-      console.log('Error is ApiError:', error.toJSON());
       throw error;
     }
 

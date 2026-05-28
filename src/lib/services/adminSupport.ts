@@ -67,7 +67,7 @@ export const adminSupportService = {
   getAllTickets: async (filters?: TicketFilters): Promise<SupportTicket[]> => {
     try {
       const params = new URLSearchParams();
-      
+
       if (filters) {
         if (filters.status && filters.status !== 'ALL') params.append('status', filters.status);
         if (filters.category && filters.category !== 'ALL') params.append('category', filters.category);
@@ -79,8 +79,7 @@ export const adminSupportService = {
       }
 
       const endpoint = `/api/support/admin/tickets${params.toString() ? `?${params}` : ''}`;
-      console.log('🎫 Fetching tickets from:', endpoint);
-      
+
       const response = await api.get<SupportTicket[]>(endpoint);
       return response.data || [];
     } catch (error) {
@@ -92,13 +91,12 @@ export const adminSupportService = {
   // Obtener detalles de un ticket específico
   getTicketDetails: async (ticketId: number): Promise<SupportTicket> => {
     try {
-      console.log('🎫 Fetching ticket details for ID:', ticketId);
       const response = await api.get<SupportTicket>(`/api/support/admin/tickets/${ticketId}`);
-      
+
       if (!response.data) {
         throw new Error('Invalid response format');
       }
-      
+
       return response.data;
     } catch (error) {
       console.error('❌ Error fetching ticket details:', error);
@@ -120,13 +118,12 @@ export const adminSupportService = {
   // Actualizar ticket (estado, prioridad, asignación)
   updateTicket: async (ticketId: number, updates: TicketUpdate): Promise<SupportTicket> => {
     try {
-      console.log('🔄 Updating ticket:', { ticketId, ...updates });
       const response = await api.patch<SupportTicket>(`/api/support/admin/tickets/${ticketId}`, updates);
-      
+
       if (!response.data) {
         throw new Error('Invalid response format');
       }
-      
+
       return response.data;
     } catch (error) {
       console.error('❌ Error updating ticket:', error);
@@ -137,15 +134,14 @@ export const adminSupportService = {
   // Responder a un ticket
   replyToTicket: async (ticketId: number, message: string): Promise<TicketMessage> => {
     try {
-      console.log('💬 Replying to ticket:', ticketId);
       const response = await api.post<TicketMessage>(`/api/support/tickets/${ticketId}/messages`, { 
         message 
       });
-      
+
       if (!response.data) {
         throw new Error('Invalid response format');
       }
-      
+
       return response.data;
     } catch (error) {
       console.error('❌ Error replying to ticket:', error);
@@ -156,7 +152,6 @@ export const adminSupportService = {
   // Asignar ticket a staff member
   assignTicket: async (ticketId: number, staffId: number): Promise<void> => {
     try {
-      console.log('👤 Assigning ticket:', { ticketId, staffId });
       await api.patch(`/api/support/admin/tickets/${ticketId}`, { assignedTo: staffId });
     } catch (error) {
       console.error('❌ Error assigning ticket:', error);

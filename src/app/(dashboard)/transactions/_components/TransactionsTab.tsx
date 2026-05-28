@@ -28,14 +28,12 @@ export default function TransactionsTab() {
     try {
       setIsLoading(true);
       setError(null);
-      console.log(`💰 Loading transactions for ${selectedPeriod} days...`);
-      
+
       const [statsData, transactionsData] = await Promise.all([
         transactionsService.getStats(selectedPeriod),
         transactionsService.getRecentTransactions(50, 0)
       ]);
-      
-      console.log('✅ Data loaded:', { statsData, transactionsData });
+
       setStats(statsData);
       setTransactions(transactionsData);
     } catch (err) {

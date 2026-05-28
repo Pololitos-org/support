@@ -77,17 +77,9 @@ export default function DashboardLayout({
   }, [router]);
 
   // Log para debugging
-  useEffect(() => {
-    console.log('Current pathname:', pathname);
-    console.log('Navigation items:', navigationItems.map(item => ({
-      label: item.label,
-      href: item.href,
-      isActive: pathname === item.href
-    })));
-  }, [pathname]);
+  useEffect(() => {}, [pathname]);
 
   const handleNavigation = (href: string) => {
-    console.log('Navigating to:', href);
     router.push(href);
     setSidebarOpen(false);
   };

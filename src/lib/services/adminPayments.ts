@@ -105,7 +105,7 @@ export const adminPaymentsService = {
   ): Promise<PaymentAnalyticsResponse['data']> => {
     try {
       const params = new URLSearchParams();
-      
+
       if (filters) {
         Object.entries(filters).forEach(([key, value]) => {
           if (value !== undefined && value !== null) {
@@ -115,10 +115,9 @@ export const adminPaymentsService = {
       }
 
       const endpoint = `/api/admin/users/analytics${params.toString() ? `?${params}` : ''}`;
-      console.log('💰 Fetching payment analytics from:', endpoint);
-      
+
       const response = await api.get<PaymentAnalyticsResponse>(endpoint);
-      
+
       if (response.data?.success) {
         return response.data.data;
       } else {
@@ -138,7 +137,7 @@ export const adminPaymentsService = {
   ): Promise<void> => {
     try {
       const params = new URLSearchParams();
-      
+
       if (filters) {
         Object.entries(filters).forEach(([key, value]) => {
           if (value !== undefined && value !== null) {
@@ -146,13 +145,11 @@ export const adminPaymentsService = {
           }
         });
       }
-      
+
       params.append('export', 'true');
 
       const endpoint = `/api/admin/users/analytics?${params.toString()}`;
       window.open(endpoint, '_blank');
-      
-      console.log('📥 Exporting payment analytics to CSV');
     } catch (error) {
       console.error('❌ Error exporting payment analytics:', error);
       throw error;

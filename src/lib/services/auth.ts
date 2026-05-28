@@ -32,8 +32,6 @@ export interface StaffCheckResponse {
 export const authService = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
     try {
-      console.log('🔐 Attempting login for:', credentials.email);
-
       const response = await api.post<LoginResponse>('/api/auth/login', credentials);
 
       if (!response.data?.accessToken) {
@@ -45,7 +43,6 @@ export const authService = {
       }
 
       localStorage.setItem('accessToken', response.data.accessToken);
-      console.log('✅ Login successful');
 
       return response.data;
     } catch (error) {
@@ -57,8 +54,6 @@ export const authService = {
 
   checkStaffStatus: async (): Promise<StaffCheckResponse> => {
     try {
-      console.log('🛡️ Checking staff status...');
-
       const response = await api.get<StaffCheckResponse>('/api/support/admin/check-staff');
 
       if (!response.data) {
@@ -69,7 +64,6 @@ export const authService = {
         );
       }
 
-      console.log('✅ Staff status verified:', response.data);
       return response.data;
     } catch (error) {
       logError(error, 'Staff check');
@@ -78,7 +72,6 @@ export const authService = {
   },
 
   logout: (): void => {
-    console.log('👋 Logging out...');
     localStorage.removeItem('accessToken');
   },
 

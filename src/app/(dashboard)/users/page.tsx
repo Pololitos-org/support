@@ -163,7 +163,6 @@ export default function UsersPage() {
     setIsLoading(true);
     try {
       const response = await adminUsersService.getAllUsers(filters);
-      console.log('👥 Users loaded:', response);
       setUsers(response.users);
       setPagination(response.pagination);
     } catch (error) {
@@ -226,7 +225,6 @@ export default function UsersPage() {
     setIsLoadingPayouts(true);
     try {
       const response = await adminUsersService.getPendingPayouts(minBalance);
-      console.log('💰 Pending payouts loaded:', response);
       setPendingPayouts(response.data);
     } catch (error) {
       console.error('❌ Error loading pending payouts:', error);
@@ -316,7 +314,6 @@ export default function UsersPage() {
 
     try {
       await adminUsersService.updateUserStatus(selectedUser.id, statusUpdate);
-      console.log('✅ User status updated successfully');
       setShowStatusModal(false);
       setSelectedUser(null);
       await loadUsers();

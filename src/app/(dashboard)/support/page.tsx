@@ -82,7 +82,6 @@ export default function SupportPage() {
     setIsLoading(true);
     try {
       const ticketsData = await adminSupportService.getAllTickets(filters);
-      console.log('🎫 Tickets loaded:', ticketsData);
       setTickets(ticketsData);
     } catch (error) {
       console.error('❌ Error loading tickets:', error);
@@ -166,7 +165,6 @@ export default function SupportPage() {
         priority: ticketUpdate.priority as any,
         assignedTo: ticketUpdate.assignedTo
       });
-      console.log('✅ Ticket updated successfully');
       setShowUpdateModal(false);
       setSelectedTicket(null);
       await loadTickets(); // Recargar lista

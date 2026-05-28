@@ -55,9 +55,7 @@ export default function AnalyticsPage() {
     try {
       setIsLoading(true);
       setError(null);
-      console.log(`📈 Loading analytics for ${selectedPeriod} days...`);
       const data = await analyticsService.getStats(selectedPeriod);
-      console.log('✅ Analytics loaded:', data);
       setAnalytics(data);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';

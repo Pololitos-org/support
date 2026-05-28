@@ -39,10 +39,9 @@ export const adminVerificationService = {
           params.append('search', filters.search);
         }
       }
-      
+
       const endpoint = `/api/verification/admin/documents${params.toString() ? `?${params}` : ''}`;
-      console.log('🔍 Fetching documents from:', endpoint);
-      
+
       const response = await api.get<AdminVerificationDocument[]>(endpoint);
       return response.data!;
     } catch (error) {
@@ -54,7 +53,6 @@ export const adminVerificationService = {
   // Aprobar documento
   approveDocument: async (documentId: number): Promise<void> => {
     try {
-      console.log('✅ Approving document:', documentId);
       await api.post(`/api/verification/admin/document/${documentId}/approve`);
     } catch (error) {
       console.error('❌ Error approving document:', error);
@@ -65,7 +63,6 @@ export const adminVerificationService = {
   // Rechazar documento con razón
   rejectDocument: async (documentId: number, reason: string): Promise<void> => {
     try {
-      console.log('❌ Rejecting document:', documentId, 'reason:', reason);
       await api.post(`/api/verification/admin/document/${documentId}/reject`, { reason });
     } catch (error) {
       console.error('❌ Error rejecting document:', error);

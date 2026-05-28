@@ -87,8 +87,6 @@ export const transactionsService = {
 
       const endDate = new Date();
 
-      console.log(`📊 Fetching transaction stats for ${days} days...`);
-
       const response = await api.get<TransactionStats>(
         `/api/admin/transactions/stats?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`
       );
@@ -109,8 +107,6 @@ export const transactionsService = {
    */
   async getRecentTransactions(limit: number = 50, offset: number = 0): Promise<Transaction[]> {
     try {
-      console.log(`📋 Fetching recent transactions (limit: ${limit}, offset: ${offset})...`);
-
       const response = await api.get<Transaction[]>(
         `/api/admin/transactions/recent?limit=${limit}&offset=${offset}`
       );
@@ -145,8 +141,6 @@ export const transactionsService = {
    */
   async getUserTransactions(userId: number, limit: number = 50): Promise<UserTransactionsResponse> {
     try {
-      console.log(`👤 Fetching transactions for user ${userId}...`);
-
       const response = await api.get<UserTransactionsResponse>(
         `/api/admin/transactions/user/${userId}?limit=${limit}`
       );
@@ -206,7 +200,6 @@ export const transactionsService = {
    */
   async refundTransaction(paymentId: number): Promise<{ success: boolean; message: string; refundTransactionId?: number }> {
     try {
-      console.log(`💰 Requesting refund for payment ${paymentId}...`);
       const response = await api.post<{ success: boolean; message: string; refundTransactionId?: number }>(
         `/api/admin/payments/${paymentId}/refund`,
         {}
