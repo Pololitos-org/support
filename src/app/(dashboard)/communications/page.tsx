@@ -36,6 +36,16 @@ import { communicationsService, UserSearchResult } from '@/lib/services/communic
 
 type PushMode = 'INCOMPLETE_PROFILES' | 'SPECIFIC_USERS' | 'ALL_USERS' | 'WORKERS' | 'HIRERS';
 
+const SUGGESTED_ROUTES = [
+  { path: '/home', label: 'Inicio (Home)' },
+  { path: '/pololos', label: 'Buscar Pololitos / Tareas' },
+  { path: '/messages', label: 'Bandeja de Mensajes (Chat)' },
+  { path: '/notifications', label: 'Notificaciones' },
+  { path: '/account', label: 'Mi Cuenta (Perfil)' },
+  { path: '/account/verification', label: 'Verificación de Cuenta' },
+  { path: '/myTickets', label: 'Mis Tickets de Soporte' },
+];
+
 export default function CommunicationsPage() {
   // ─── Direct Message State ──────────────────────────────────────
   const [dmSearchQuery, setDmSearchQuery] = useState('');
@@ -54,6 +64,7 @@ export default function CommunicationsPage() {
   const [pushMessage, setPushMessage] = useState('¡Sube tus documentos para activar tu cuenta y empezar a trabajar en Pololitos!');
   const [pushMode, setPushMode] = useState<PushMode>('INCOMPLETE_PROFILES');
   const [pushPath, setPushPath] = useState('');
+  const [showRouteSuggestions, setShowRouteSuggestions] = useState(false);
   const [pushType, setPushType] = useState<'ACTION_NEEDED' | 'CUSTOM_MESSAGE'>('CUSTOM_MESSAGE');
   const [pushResult, setPushResult] = useState<{ success: boolean; message: string; isError?: boolean } | null>(null);
 
@@ -64,7 +75,7 @@ export default function CommunicationsPage() {
       icon: <UserCheck className="h-4 w-4" />,
       title: '¡Verifica tu cuenta!',
       message: 'Completa tu perfil subiendo tus documentos para empezar a recibir ofertas.',
-      path: '/(authenticated)/account/verification',
+      path: '/account/verification',
       type: 'ACTION_NEEDED' as const,
       color: 'bg-amber-100 text-amber-700 hover:bg-amber-200 border-amber-200'
     },
@@ -74,7 +85,7 @@ export default function CommunicationsPage() {
       icon: <Megaphone className="h-4 w-4" />,
       title: '¡Bienvenido a Pololitos! 🚀',
       message: 'Estamos felices de tenerte aquí. Explora las tareas disponibles cerca de ti.',
-      path: '/(authenticated)/(tabs)/home',
+      path: '/home',
       type: 'CUSTOM_MESSAGE' as const,
       color: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-emerald-200'
     },
@@ -84,7 +95,7 @@ export default function CommunicationsPage() {
       icon: <MessageSquare className="h-4 w-4" />,
       title: 'Nuevo mensaje recibido',
       message: 'Tienes mensajes pendientes en tus conversaciones. Entra para responder.',
-      path: '/(authenticated)/(tabs)/messages',
+      path: '/messages',
       type: 'CUSTOM_MESSAGE' as const,
       color: 'bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-200'
     }
@@ -226,6 +237,11 @@ export default function CommunicationsPage() {
       setIsLoadingSes(false);
     }
   };
+
+  const filteredRoutes = SUGGESTED_ROUTES.filter(route => 
+    route.path.toLowerCase().includes(pushPath.toLowerCase()) ||
+    route.label.toLowerCase().includes(pushPath.toLowerCase())
+  );
 
   const confirmDescription =
     pushMode === 'SPECIFIC_USERS'
@@ -402,13 +418,36 @@ export default function CommunicationsPage() {
                 placeholder="Escribe el mensaje aquí..."
               />
             </div>
-            <div>
+            <div className="relative">
               <label className="text-sm font-medium text-gray-700 mb-1 block">Ruta de Navegación (Opcional)</label>
               <Input
                 value={pushPath}
-                onChange={(e) => setPushPath(e.target.value)}
-                placeholder="Ej. /(authenticated)/account/verification"
+                onChange={(e) => {
+                  setPushPath(e.target.value);
+                  setShowRouteSuggestions(true);
+                }}
+                onFocus={() => setShowRouteSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowRouteSuggestions(false), 200)}
+                placeholder="Ej. /home o /account/verification"
               />
+              {showRouteSuggestions && filteredRoutes.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 border border-gray-200 rounded-md bg-white shadow-lg max-h-48 overflow-y-auto">
+                  {filteredRoutes.map(route => (
+                    <button
+                      key={route.path}
+                      type="button"
+                      onClick={() => {
+                        setPushPath(route.path);
+                        setShowRouteSuggestions(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs hover:bg-indigo-50 border-b border-gray-100 last:border-b-0 flex justify-between items-center transition-colors"
+                    >
+                      <span className="font-semibold text-indigo-600">{route.path}</span>
+                      <span className="text-gray-400 text-[10px]">{route.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
               <p className="text-[10px] text-gray-400 mt-1">Si se deja vacío, redirigirá a la pantalla de verificación de cuenta por defecto.</p>
             </div>
 
