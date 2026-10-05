@@ -8,21 +8,23 @@ export interface UserSearchResult {
   state: string;
 }
 
+export type ActivitySegment =
+  | 'no_publish_7d'
+  | 'no_apply_7d'
+  | 'task_no_offers_72h'
+  | 'offer_no_response_48h'
+  | 'assigned_no_complete_5d'
+  | 'inactive_30d';
+
 export const communicationsService = {
-  /**
-   * Dispara el envío de notificaciones push a perfiles incompletos
-   */
   async sendIncompleteProfilePush(title: string, message: string): Promise<{ success: boolean; sent?: number; message?: string; error?: string }> {
-    return communicationsService.sendPushNotification(title, message, 'INCOMPLETE_PROFILES', []);
+    return communicationsService.sendPushNotification(title, message, ['INCOMPLETE_PROFILES'], []);
   },
 
-  /**
-   * Nuevo endpoint flexible: envía push a perfiles incompletos o a usuarios específicos
-   */
   async sendPushNotification(
     title: string,
     message: string,
-    mode: 'INCOMPLETE_PROFILES' | 'SPECIFIC_USERS' | 'ALL_USERS' | 'WORKERS' | 'HIRERS',
+    modes: string[],
     userIds: number[],
     path?: string,
     type?: 'ACTION_NEEDED' | 'CUSTOM_MESSAGE'
@@ -30,7 +32,7 @@ export const communicationsService = {
     try {
       const response = await api.post<{ success: boolean; sent?: number; message?: string; error?: string }>(
         '/api/admin/communications/push-notification',
-        { title, message, mode, userIds, path, type }
+        { title, message, modes, userIds, path, type }
       );
       return response.data || { success: false, error: 'No data returned' };
     } catch (error: any) {
@@ -39,15 +41,11 @@ export const communicationsService = {
     }
   },
 
-  /**
-   * Busca usuarios por nombre o email (reutiliza adminUsersService)
-   */
   async searchUsers(query: string): Promise<UserSearchResult[]> {
     try {
       const response = await api.get<{ success: boolean; data: { users: UserSearchResult[] } }>(
         `/api/admin/users?search=${encodeURIComponent(query)}&limit=20`
       );
-      // La API retorna { success: true, data: { users: [], pagination: {} } }
       return response.data?.data?.users || [];
     } catch (error: any) {
       console.error('Error searching users:', error);
@@ -55,10 +53,6 @@ export const communicationsService = {
     }
   },
 
-  /**
-   * Crea un ticket de soporte en nombre del usuario y le envía una notificación push.
-   * Equivale al "mensaje directo" del panel admin de la app mobile.
-   */
   async sendDirectMessage(
     userId: number,
     subject: string,
@@ -77,9 +71,6 @@ export const communicationsService = {
     }
   },
 
-  /**
-   * Dispara la campaña de email masivo SES
-   */
   async sendSESCampaign(audience: 'WORK' | 'HIRE' | 'BOTH', subject: string, html: string): Promise<{ success: boolean; message?: string; targetCount?: number; error?: string }> {
     try {
       const response = await api.post<{ success: boolean; message?: string; targetCount?: number; error?: string }>(
@@ -90,6 +81,69 @@ export const communicationsService = {
     } catch (error: any) {
       console.error('Error triggering SES campaign:', error);
       return { success: false, error: error.message || 'Error de conexión' };
+    }
+  },
+
+  async sendTestEmail(to: string, subject: string, html: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    try {
+      const response = await api.post<{ success: boolean; messageId?: string; error?: string }>(
+        '/api/admin/emails/test',
+        { to, subject, html }
+      );
+      return response.data || { success: false, error: 'No data returned' };
+    } catch (error: any) {
+      console.error('Error sending test email:', error);
+      return { success: false, error: error.message || 'Error de conexión' };
+    }
+  },
+
+  async getAudienceCount(audience: 'WORK' | 'HIRE' | 'BOTH'): Promise<{ count: number }> {
+    try {
+      const response = await api.get<{ success: boolean; count: number }>(
+        `/api/admin/communications/ses-count?audience=${audience}`
+      );
+      return { count: response.data?.count ?? 0 };
+    } catch (error: any) {
+      console.error('Error getting audience count:', error);
+      return { count: 0 };
+    }
+  },
+
+  async getCustomSegmentCount(condition: string, days: number, role: string): Promise<{ count: number; userIds: number[] }> {
+    try {
+      const response = await api.get<{ success: boolean; count: number; userIds: number[] }>(
+        `/api/admin/segments/custom?condition=${condition}&days=${days}&role=${role}`
+      );
+      return { count: response.data?.count ?? 0, userIds: response.data?.userIds ?? [] };
+    } catch (error: any) {
+      console.error('Error getting custom segment count:', error);
+      return { count: 0, userIds: [] };
+    }
+  },
+
+  async getUnionCount(modes: string[], userIds: number[]): Promise<{ count: number }> {
+    try {
+      const params = new URLSearchParams();
+      if (modes.length) params.set('modes', modes.join(','));
+      if (userIds.length) params.set('userIds', userIds.join(','));
+      const response = await api.get<{ success: boolean; count: number }>(
+        `/api/admin/segments/union-count?${params.toString()}`
+      );
+      return { count: response.data?.count ?? 0 };
+    } catch {
+      return { count: 0 };
+    }
+  },
+
+  async getSegmentCount(segmentName: ActivitySegment | string): Promise<{ count: number; userIds: number[] }> {
+    try {
+      const response = await api.get<{ success: boolean; count: number; userIds: number[] }>(
+        `/api/admin/segments/${segmentName}`
+      );
+      return { count: response.data?.count ?? 0, userIds: response.data?.userIds ?? [] };
+    } catch (error: any) {
+      console.error('Error getting segment count:', error);
+      return { count: 0, userIds: [] };
     }
   }
 };

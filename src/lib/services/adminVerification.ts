@@ -7,13 +7,14 @@ export interface AdminVerificationDocument {
   userId: number;
   userName: string;
   userEmail?: string;
-  documentType: 'IDENTITY' | 'ADDRESS' | 'CRIMINAL_RECORD' | 'OTHER';
+  documentType: 'IDENTITY' | 'ADDRESS' | 'CRIMINAL_RECORD' | 'OTHER' | 'CHILDCARE_INABILITY';
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   fileUrl: string;
   createdAt: string;
   updatedAt: string;
   rejectionReason?: string;
   profilePictureUrl?: string;
+  showOnProfile?: boolean;
 }
 
 export interface VerificationFilters {
@@ -88,6 +89,16 @@ export const adminVerificationService = {
       return response.data!;
     } catch (error) {
       console.error('❌ Error fetching user documents:', error);
+      throw error;
+    }
+  },
+
+  // Alternar la visibilidad de un documento en el perfil
+  toggleDocumentVisibility: async (documentId: number, showOnProfile: boolean): Promise<void> => {
+    try {
+      await api.put(`/api/verification/admin/document/${documentId}/visibility`, { showOnProfile });
+    } catch (error) {
+      console.error('❌ Error toggling document visibility:', error);
       throw error;
     }
   },
